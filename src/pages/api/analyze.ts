@@ -35,20 +35,14 @@ export const POST: APIRoute = async ({ request }) => {
     // Step 3: Search for competitors
     const searchResults = await searchCompetitors(queries);
 
-    // Step 4: Scrape top 10 candidate URLs in parallel (skip failures)
+    // Step 4: Scrape top 10 candidate URLs in parallel
     const candidates = searchResults.slice(0, 10);
-    const scrapedCompetitors: Array<SearchResult & { scrapedContent: string }> = [];
-
-    await Promise.allSettled(
-      candidates.map(async (result) => {
-        try {
-          const content = await scrapeWebsite(result.url);
-          scrapedCompetitors.push({ ...result, scrapedContent: content });
-        } catch {
-          // scrape failed — skip silently
-        }
-      })
+    const scrapeResults = await Promise.allSettled(
+      candidates.map(result => scrapeWebsite(result.url).then(content => ({ ...result, scrapedContent: content })))
     );
+    const scrapedCompetitors = scrapeResults
+      .filter(r => r.status === "fulfilled")
+      .map(r => (r as PromiseFulfilledResult<SearchResult & { scrapedContent: string }>).value);
 
     // Step 5: Analyze
     const analysis = await analyzeCompetitors(
