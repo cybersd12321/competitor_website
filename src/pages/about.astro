@@ -1,0 +1,51 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout
+  title="About Us | findmycompetitor"
+  description="Learn about findmycompetitor — the AI-powered tool that helps you find competitors and map feature gaps instantly, for free."
+  canonical="https://findmycompetitor.com/about"
+>
+  <div class="max-w-3xl mx-auto px-4 sm:px-6 py-16 sm:py-24">
+    <h1 class="text-[28px] sm:text-[36px] font-semibold leading-tight tracking-[-1px] text-ink mb-4">About Us</h1>
+    <p class="text-[16px] sm:text-[18px] leading-7 text-body mb-12 max-w-2xl">
+      findmycompetitor is an AI-powered competitor analysis tool built for founders, product teams, and marketers who need fast, accurate market intelligence — without the enterprise price tag.
+    </p>
+
+    <div class="space-y-12">
+
+      <section>
+        <h2 class="text-[20px] font-semibold text-ink mb-3">Our Mission</h2>
+        <p class="text-[15px] leading-7 text-body">We believe every builder deserves to know their competitive landscape. We built findmycompetitor so you can paste a URL and get a full competitor map and feature gap analysis in under 60 seconds — no email required, no sales call needed.</p>
+      </section>
+
+      <section>
+        <h2 class="text-[20px] font-semibold text-ink mb-3">What We Do</h2>
+        <div class="grid sm:grid-cols-3 gap-4 mt-4">
+          {[
+            { title: 'Auto-Discover', body: 'Our AI reads your site, classifies your niche, and finds every relevant competitor across review sites, app stores, and search rankings.' },
+            { title: 'Feature Gap Matrix', body: 'We generate a visual side-by-side comparison so you instantly see where you lead, where you lag, and what gaps exist in the market.' },
+            { title: 'Free & Instant', body: 'No registration, no waiting. Results appear in your browser within 60 seconds.' },
+          ].map(card => (
+            <div class="bg-canvas-soft rounded-[10px] border border-hairline p-5">
+              <p class="text-[14px] font-semibold text-ink mb-2">{card.title}</p>
+              <p class="text-[13px] leading-6 text-body">{card.body}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section>
+        <h2 class="text-[20px] font-semibold text-ink mb-3">Our Story</h2>
+        <p class="text-[15px] leading-7 text-body">We were tired of spending hours manually researching competitors, copy-pasting into spreadsheets, and paying thousands for tools that still required hours of setup. So we built the tool we always wanted — and made it free to use.</p>
+      </section>
+
+      <section>
+        <h2 class="text-[20px] font-semibold text-ink mb-3">Get in Touch</h2>
+        <p class="text-[15px] leading-7 text-body">Have a question or want to collaborate? <a href="/contact" class="text-link hover:underline">Contact us</a> or email <a href="mailto:hello@findmycompetitor.com" class="text-link hover:underline">hello@findmycompetitor.com</a>.</p>
+      </section>
+
+    </div>
+  </div>
+</Layout>

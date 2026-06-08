@@ -1,0 +1,237 @@
+@import url("https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400&display=swap");
+@import "tailwindcss";
+
+/* Override dark variant to use .dark class instead of media query */
+@custom-variant dark (&:is(.dark, .dark *));
+
+@theme {
+  /* ── Brand colors ─────────────────────────────────────────────── */
+  --color-primary: #171717;
+  --color-on-primary: #ffffff;
+  --color-ink: #171717;
+  --color-body: #4d4d4d;
+  --color-mute: #888888;
+  --color-hairline: #ebebeb;
+  --color-hairline-strong: #a1a1a1;
+  --color-canvas: #ffffff;
+  --color-canvas-soft: #fafafa;
+  --color-canvas-soft-2: #f5f5f5;
+
+  /* ── Semantic ─────────────────────────────────────────────────── */
+  --color-link: #0070f3;
+  --color-link-deep: #0761d1;
+  --color-link-bg-soft: #d3e5ff;
+  --color-success: #0070f3;
+  --color-error: #ee0000;
+  --color-error-soft: #f7d4d6;
+  --color-error-deep: #c50000;
+  --color-warning: #f5a623;
+  --color-warning-soft: #ffefcf;
+  --color-warning-deep: #ab570a;
+
+  /* ── Accent ───────────────────────────────────────────────────── */
+  --color-violet: #7928ca;
+  --color-violet-soft: #d8ccf1;
+  --color-violet-deep: #4c2889;
+  --color-cyan: #50e3c2;
+  --color-cyan-soft: #aaffec;
+  --color-cyan-deep: #29bc9b;
+  --color-highlight-pink: #ff0080;
+  --color-highlight-magenta: #eb367f;
+
+  /* ── Brand gradients ──────────────────────────────────────────── */
+  --color-gradient-develop-start: #007cf0;
+  --color-gradient-develop-end: #00dfd8;
+  --color-gradient-preview-start: #7928ca;
+  --color-gradient-preview-end: #ff0080;
+  --color-gradient-ship-start: #ff4d4d;
+  --color-gradient-ship-end: #f9cb28;
+
+  /* ── Typography ───────────────────────────────────────────────── */
+  --font-sans: Geist, Inter, system-ui, -apple-system, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+
+  /* ── Spacing ──────────────────────────────────────────────────── */
+  --spacing-brand-xxs: 4px;
+  --spacing-brand-xs: 8px;
+  --spacing-brand-sm: 12px;
+  --spacing-brand-md: 16px;
+  --spacing-brand-lg: 24px;
+  --spacing-brand-xl: 32px;
+  --spacing-brand-2xl: 40px;
+  --spacing-brand-3xl: 48px;
+  --spacing-brand-4xl: 64px;
+  --spacing-brand-5xl: 96px;
+  --spacing-brand-6xl: 128px;
+  --spacing-brand-section: 192px;
+
+  /* ── Border radius ────────────────────────────────────────────── */
+  --radius-none: 0px;
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-pill-sm: 64px;
+  --radius-pill: 100px;
+  --radius-full: 9999px;
+
+  /* ── Breakpoints ──────────────────────────────────────────────── */
+  --breakpoint-sm: 600px;
+  --breakpoint-md: 960px;
+  --breakpoint-lg: 1200px;
+  --breakpoint-xl: 1400px;
+}
+
+/* ── Dark mode token overrides ──────────────────────────────────── */
+html.dark {
+  --color-primary: #ffffff;
+  --color-on-primary: #0a0a0a;
+  --color-ink: #f0f0f0;
+  --color-body: #a0a0a0;
+  --color-mute: #666666;
+  --color-hairline: #2a2a2a;
+  --color-hairline-strong: #444444;
+  --color-canvas: #0f0f0f;
+  --color-canvas-soft: #161616;
+  --color-canvas-soft-2: #1f1f1f;
+  --color-link: #3b9eff;
+  --color-link-deep: #5aaeff;
+  --color-link-bg-soft: #0d2a4a;
+}
+
+/* ── Base reset & defaults ──────────────────────────────────────── */
+*, ::before, ::after { box-sizing: border-box; }
+
+html {
+  font-family: var(--font-sans);
+  background-color: var(--color-canvas-soft);
+  color: var(--color-ink);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  scroll-behavior: smooth;
+}
+
+::selection {
+  background-color: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+/* ── Reduced motion ─────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ── Utilities ──────────────────────────────────────────────────── */
+@utility focus-ring {
+  outline: 2px solid var(--color-link);
+  outline-offset: 2px;
+}
+
+@utility text-balance {
+  text-wrap: balance;
+}
+
+/* Stacked shadow elevation system (DESIGN.md) */
+@utility shadow-card {
+  box-shadow:
+    inset 0 0 0 1px var(--color-hairline),
+    0px 1px 1px #00000008,
+    0px 2px 2px #0000000d;
+}
+
+@utility shadow-card-md {
+  box-shadow:
+    inset 0 0 0 1px var(--color-hairline),
+    0px 2px 2px #0000000d,
+    0px 8px 8px -8px #00000012;
+}
+
+@utility shadow-card-lg {
+  box-shadow:
+    inset 0 0 0 1px var(--color-hairline),
+    0px 2px 2px #0000000d,
+    0px 8px 16px -4px #00000012;
+}
+
+/* Dark mode shadow overrides */
+html.dark .shadow-card,
+html.dark [class*="shadow-card"] {
+  box-shadow:
+    inset 0 0 0 1px #ffffff10,
+    0px 1px 1px #00000040,
+    0px 2px 2px #00000030;
+}
+
+/* Always-dark band sections (auto-scrape, CTA) */
+.dark-band {
+  background-color: #0f0f0f;
+  color: #ffffff;
+}
+html:not(.dark) .dark-band {
+  background-color: #f5f5f5;
+  color: #111111;
+}
+/* Terminal boxes always stay dark — do NOT override their text colors */
+html:not(.dark) .dark-band h2,
+html:not(.dark) .dark-band p:not(.terminal-text) {
+  color: #111111;
+}
+html.dark .dark-band {
+  background-color: #0a0a0a;
+  color: #ffffff;
+}
+
+/* FAQ section light mode visibility */
+html:not(.dark) #faq dt {
+  color: #111111;
+}
+html:not(.dark) #faq dd {
+  color: #4d4d4d;
+}
+html:not(.dark) #faq .border-b {
+  border-color: rgba(0, 0, 0, 0.12);
+}
+
+/* Smooth theme transition */
+html { transition: background-color 0.2s ease, color 0.2s ease; }
+
+
+/* ── Print / PDF styles ─────────────────────────────────────────── */
+@media print {
+  /* Hide page chrome and all sections except print-frame */
+  header, footer, #hero, #how-it-works, #features,
+  .dark-band, #faq, #analysis-results,
+  section:not(#analysis-results) { display: none !important; }
+
+  .no-print { display: none !important; }
+
+  /* Show only the dedicated print frame */
+  #print-frame {
+    display: block !important;
+    padding: 0;
+    margin: 0;
+  }
+
+  /* Typography resets */
+  body { background: white !important; color: #111 !important; font-family: system-ui, sans-serif; }
+
+  /* Table */
+  table { border-collapse: collapse; width: 100%; font-size: 11px; }
+  th, td { border: 1px solid #ccc !important; padding: 5px 8px !important; text-align: left; }
+  thead tr { background: #f5f5f5 !important; }
+  tr { page-break-inside: avoid; }
+  thead { display: table-header-group; }
+
+  @page {
+    margin: 1.5cm;
+    size: A4 landscape;
+  }
+}

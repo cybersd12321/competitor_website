@@ -1,0 +1,34 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout
+  title="Page Not Found — findmycompetitor"
+  description="The page you're looking for doesn't exist."
+>
+  <section class="bg-canvas min-h-[60vh] flex items-center justify-center py-24 px-4">
+    <div class="text-center max-w-lg mx-auto">
+      <p class="font-mono text-[12px] text-mute uppercase tracking-wider mb-4">Error 404</p>
+      <h1 class="text-[40px] sm:text-[56px] font-semibold leading-none tracking-[-2.4px] text-ink mb-4">
+        Page not found
+      </h1>
+      <p class="text-[16px] sm:text-[18px] leading-7 text-body mb-10 text-balance">
+        The page you're looking for doesn't exist or has been moved.
+      </p>
+      <div class="flex flex-col sm:flex-row items-center justify-center gap-3">
+        <a
+          href="/"
+          class="inline-flex items-center justify-center h-12 px-6 bg-primary text-on-primary text-[16px] font-medium leading-6 rounded-[100px] hover:opacity-80 transition-opacity focus-visible:focus-ring"
+        >
+          Go home
+        </a>
+        <a
+          href="/#hero"
+          class="inline-flex items-center justify-center h-12 px-6 bg-canvas text-ink text-[16px] font-medium leading-6 rounded-[100px] border border-hairline hover:bg-canvas-soft-2 transition-colors focus-visible:focus-ring"
+        >
+          Try the tool
+        </a>
+      </div>
+    </div>
+  </section>
+</Layout>

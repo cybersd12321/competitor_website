@@ -1,11 +1,827 @@
 ---
-import Welcome from '../components/Welcome.astro';
 import Layout from '../layouts/Layout.astro';
+import { t, type Lang } from '../i18n/translations';
 
-// Welcome to Astro! Wondering what to do next? Check out the Astro documentation at https://docs.astro.build
-// Don't want to use any of this? Delete everything in this file, the `assets`, `components`, and `layouts` directories, and start fresh.
+const langParam = Astro.url.searchParams.get('lang');
+const validLangs: Lang[] = ['en', 'de', 'es', 'fr', 'ja', 'ru'];
+const lang: Lang = validLangs.includes(langParam as Lang) ? (langParam as Lang) : 'en';
+const T = t[lang];
+
+const stepGradients = [
+  { gradient: 'from-[#007cf0] to-[#00dfd8]', num: '01' },
+  { gradient: 'from-[#7928ca] to-[#ff0080]', num: '02' },
+  { gradient: 'from-[#ff4d4d] to-[#f9cb28]', num: '03' },
+];
+
+const featureIcons = [
+  `<svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="10" cy="10" r="8" stroke="#007cf0" stroke-width="1.5"/><circle cx="10" cy="10" r="4" stroke="#007cf0" stroke-width="1.5" stroke-dasharray="2 1.5"/><circle cx="10" cy="10" r="1.5" fill="#007cf0"/></svg>`,
+  `<svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true"><rect x="2" y="5" width="16" height="11" rx="2" stroke="#7928ca" stroke-width="1.5"/><path d="M6 9h8M6 12h5" stroke="#7928ca" stroke-width="1.5" stroke-linecap="round"/></svg>`,
+  `<svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 3v14M3 10h14" stroke="#ff4d4d" stroke-width="1.5" stroke-linecap="round"/><circle cx="10" cy="10" r="7" stroke="#ff4d4d" stroke-width="1.5"/></svg>`,
+  `<svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M4 14l4-4 3 3 5-6" stroke="#00dfd8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><rect x="2" y="2" width="16" height="16" rx="2" stroke="#00dfd8" stroke-width="1.5"/></svg>`,
+  `<svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 2a8 8 0 100 16A8 8 0 0010 2z" stroke="#f9cb28" stroke-width="1.5"/><path d="M10 6v4l3 2" stroke="#f9cb28" stroke-width="1.5" stroke-linecap="round"/></svg>`,
+  `<svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="6" cy="7" r="3" stroke="#0070f3" stroke-width="1.5"/><circle cx="14" cy="7" r="3" stroke="#0070f3" stroke-width="1.5"/><path d="M1 17c0-3 2-5 5-5h2M11 12h2c3 0 5 2 5 5" stroke="#0070f3" stroke-width="1.5" stroke-linecap="round"/></svg>`,
+];
+
+const matrixFeatureLabels = ['SEO Analytics', 'Ad Monitoring', 'Review Tracking', 'Feature Comparison', 'Instant Results', 'No Email Gate', 'PDF Export', 'API Access'];
+const matrixCompetitors = [
+  { name: 'You', highlight: true,    values: [true,  false, false, true,  true,  true,  true,  true]  },
+  { name: 'Comp. A', highlight: false, values: [true,  true,  true,  false, false, false, false, false] },
+  { name: 'Comp. B', highlight: false, values: [true,  true,  false, false, false, false, true,  false] },
+  { name: 'Comp. C', highlight: false, values: [true,  false, true,  false, true,  false, false, false] },
+];
+
+const pricingMeta = [
+  { price: '$0', period: '', featured: false },
+  { price: '$29', period: '/month', featured: true },
+  { price: 'Custom', period: '', featured: false },
+];
 ---
 
-<Layout>
-	<Welcome />
+<Layout
+  lang={lang}
+  title="Competitor Finder — Find Competitors Website Free | findmycompetitor"
+  description="The fastest competitor finder tool online. Paste your URL to find competitors website free, discover similar websites, and get an instant feature gap matrix — no email required."
+  canonical="https://findmycompetitor.com/"
+>
+
+  <!-- ── Hero ─────────────────────────────────────────────────────── -->
+  <section id="hero" class="relative bg-canvas overflow-hidden" aria-labelledby="hero-heading">
+    <div
+      class="absolute inset-0 pointer-events-none"
+      aria-hidden="true"
+      style="background: radial-gradient(ellipse 80% 60% at 50% -10%, #007cf044 0%, #7928ca28 40%, #ff008018 65%, transparent 100%), radial-gradient(ellipse 60% 40% at 85% 15%, #00dfd820 0%, transparent 60%), radial-gradient(ellipse 40% 35% at 15% 25%, #f9cb2812 0%, transparent 60%);"
+    ></div>
+
+    <div class="relative max-w-[1400px] mx-auto px-4 sm:px-6 py-16 sm:py-24 md:py-40 text-center">
+      <a
+        href="#"
+        class="inline-flex items-center gap-2 bg-canvas-soft text-body text-[14px] leading-5 tracking-[-0.28px] px-3 py-2 rounded-full border border-hairline mb-8 hover:border-hairline-strong transition-colors focus-visible:focus-ring"
+      >
+        <span class="font-mono text-[12px] text-link font-medium">New</span>
+        {T.hero.pill}
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M2.5 6H9.5M7 3.5L9.5 6 7 8.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </a>
+
+      <h1 id="hero-heading" class="text-[32px] sm:text-[40px] md:text-[48px] font-semibold leading-[1.1] tracking-[-1.6px] md:tracking-[-2.4px] text-ink max-w-3xl mx-auto mb-6 text-balance">
+        {T.hero.h1}
+      </h1>
+      <p class="text-[16px] sm:text-[18px] leading-7 text-body max-w-xl mx-auto mb-10 text-balance">
+        {T.hero.sub}
+      </p>
+
+      <form
+        class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 max-w-2xl mx-auto mb-5"
+        action="#" method="get" aria-label="Competitor finder"
+      >
+        <label for="hero-url" class="sr-only">Your website URL</label>
+        <div class="relative flex-1">
+          <svg class="absolute left-3 top-1/2 -translate-y-1/2 text-mute pointer-events-none" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <path d="M6.5 3.5L3 8l3.5 4.5M9.5 3.5L13 8l-3.5 4.5M5 8h6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <input
+            id="hero-url" type="url" name="url" placeholder={T.hero.placeholder} autocomplete="url" required
+            class="w-full h-12 pl-9 pr-4 bg-canvas text-ink text-[15px] leading-5 border border-hairline rounded-[8px] placeholder:text-mute focus-visible:outline-none focus-visible:border-ink focus-visible:ring-2 focus-visible:ring-ink/10 transition-colors"
+            aria-describedby="hero-url-hint"
+          />
+        </div>
+        <button type="submit" class="inline-flex items-center justify-center h-12 px-6 bg-primary text-on-primary text-[16px] font-medium leading-6 rounded-[100px] hover:opacity-80 transition-opacity focus-visible:focus-ring whitespace-nowrap shrink-0">
+          {T.hero.cta}
+        </button>
+      </form>
+      <p id="hero-url-hint" class="text-[13px] text-mute">{T.hero.hint}</p>
+      <nav class="flex items-center justify-center gap-4 mt-4 flex-wrap" aria-label="Quick links">
+        {[
+          { label: 'About Us', href: '/about' },
+          { label: 'Contact', href: '/contact' },
+          { label: 'Privacy Policy', href: '/privacy-policy' },
+          { label: 'Terms', href: '/terms' },
+        ].map(link => (
+          <a href={link.href} class="text-[12px] text-mute hover:text-ink transition-colors focus-visible:focus-ring rounded-sm">{link.label}</a>
+        ))}
+      </nav>
+    </div>
+  </section>
+
+  <!-- ── Analysis Results ─────────────────────────────────────── -->
+  <section id="analysis-results" class="bg-canvas-soft border-y border-hairline py-12 hidden" aria-live="polite" aria-label="Analysis results">
+    <div class="max-w-[900px] mx-auto px-4 sm:px-6">
+      <!-- Loading state -->
+      <div id="results-loading" class="hidden text-center py-16">
+        <div class="relative inline-flex items-center justify-center mb-8">
+          <svg class="animate-spin text-primary" width="48" height="48" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5" stroke-opacity="0.15"/>
+            <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+          <span class="absolute text-[18px]" aria-hidden="true" id="loading-icon">🔍</span>
+        </div>
+        <p id="loading-step-text" class="text-ink text-[16px] font-medium tracking-[-0.3px] mb-2">🔍 Scraping and parsing target website data...</p>
+        <div class="flex items-center justify-center gap-1.5 mt-6">
+          <span id="dot-1" class="w-2 h-2 rounded-full bg-primary opacity-100 transition-opacity duration-300"></span>
+          <span id="dot-2" class="w-2 h-2 rounded-full bg-primary opacity-30 transition-opacity duration-300"></span>
+          <span id="dot-3" class="w-2 h-2 rounded-full bg-primary opacity-30 transition-opacity duration-300"></span>
+          <span id="dot-4" class="w-2 h-2 rounded-full bg-primary opacity-30 transition-opacity duration-300"></span>
+        </div>
+        <p class="text-mute text-[12px] mt-4 font-mono">This takes about 15–30 seconds</p>
+      </div>
+      <!-- Error state -->
+      <div id="results-error" class="hidden rounded-[8px] border p-5 text-[14px]"></div>
+      <!-- Output -->
+      <div id="results-output" class="hidden">
+        <div class="flex items-center justify-between gap-4 mb-6 flex-wrap">
+          <h2 class="text-[22px] font-semibold tracking-[-0.8px] text-ink">Competitor Analysis Results</h2>
+          <div class="flex items-center gap-2 no-print">
+            <button id="export-csv-btn" type="button" class="inline-flex items-center gap-1.5 h-9 px-4 text-[13px] font-medium border border-hairline rounded-[6px] text-body hover:text-ink hover:border-hairline-strong transition-colors focus-visible:focus-ring">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M7 1v8M4 6l3 3 3-3M2 10v1a1 1 0 001 1h8a1 1 0 001-1v-1" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              Export CSV
+            </button>
+            <button id="export-pdf-btn" type="button" class="inline-flex items-center gap-1.5 h-9 px-4 text-[13px] font-medium bg-primary text-on-primary rounded-[6px] hover:opacity-80 transition-opacity focus-visible:focus-ring">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><rect x="2" y="1" width="10" height="12" rx="1.5" stroke="currentColor" stroke-width="1.4"/><path d="M4 5h6M4 7.5h6M4 10h4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+              Export PDF
+            </button>
+          </div>
+        </div>
+        <!-- Target summary -->
+        <div id="results-summary" class="mb-8 bg-canvas rounded-[8px] border border-hairline p-5 grid grid-cols-1 sm:grid-cols-2 gap-4 text-[14px]"></div>
+        <!-- Competitors list -->
+        <h3 class="text-[16px] font-semibold text-ink mb-3">Top Competitors</h3>
+        <ul id="results-competitors" class="list-none m-0 p-0 mb-8 flex flex-col gap-3"></ul>
+        <!-- Gap matrix -->
+        <h3 class="text-[16px] font-semibold text-ink mb-3">Feature Gap Matrix</h3>
+        <div class="overflow-x-auto rounded-[8px] border border-hairline">
+          <table id="results-matrix" class="w-full text-[13px] border-collapse">
+            <thead><tr id="results-matrix-head" class="border-b border-hairline bg-canvas-soft"></tr></thead>
+            <tbody id="results-matrix-body"></tbody>
+          </table>
+        </div>
+        <!-- Analyze another URL -->
+        <div class="mt-8 pt-6 border-t border-hairline">
+          <p class="text-[13px] text-mute mb-3">Analyze another website</p>
+          <form class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3" aria-label="Competitor finder inline">
+            <div class="relative flex-1">
+              <svg class="absolute left-3 top-1/2 -translate-y-1/2 text-mute pointer-events-none" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <path d="M6.5 3.5L3 8l3.5 4.5M9.5 3.5L13 8l-3.5 4.5M5 8h6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              <input type="url" name="url" placeholder="https://yourwebsite.com" autocomplete="url" required
+                class="w-full h-11 pl-9 pr-4 bg-canvas text-ink text-[15px] border border-hairline rounded-[8px] placeholder:text-mute focus-visible:outline-none focus-visible:border-ink focus-visible:ring-2 focus-visible:ring-ink/10 transition-colors"
+              />
+            </div>
+            <button type="submit" class="inline-flex items-center justify-center h-11 px-5 bg-primary text-on-primary text-[15px] font-medium rounded-[100px] hover:opacity-80 transition-opacity focus-visible:focus-ring whitespace-nowrap shrink-0">
+              Analyze
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Social logos strip ─────────────────────────────────────── -->
+  <div class="bg-canvas border-y border-hairline py-6 no-print">
+    <div class="max-w-[1400px] mx-auto px-4 sm:px-6">
+      <p class="text-center font-mono text-[12px] text-mute uppercase tracking-wider mb-5">{T.logos.label}</p>
+      <ul class="flex items-center justify-center gap-6 sm:gap-10 flex-wrap list-none m-0 p-0" role="list" aria-label="Customer companies">
+        {['Storylane', 'Opnform', 'Launchpad', 'Peerlist', 'Tally', 'Rowy'].map(name => (
+          <li><span class="text-[14px] text-hairline-strong font-semibold tracking-[-0.28px]" translate="no">{name}</span></li>
+        ))}
+      </ul>
+    </div>
+  </div>
+
+  <!-- ── How It Works ──────────────────────────────────────────────── -->
+  <section id="how-it-works" class="bg-canvas py-16 sm:py-24 md:py-32" aria-labelledby="how-heading">
+    <div class="max-w-[1400px] mx-auto px-4 sm:px-6">
+      <p class="font-mono text-[12px] text-mute uppercase tracking-wider mb-4 text-center" aria-hidden="true">{T.how.eyebrow}</p>
+      <h2 id="how-heading" class="text-[24px] sm:text-[32px] font-semibold leading-tight tracking-[-1.28px] text-ink text-center mb-12 text-balance max-w-2xl mx-auto">
+        {T.how.h2}
+      </h2>
+      <ol class="grid grid-cols-1 md:grid-cols-3 gap-6 list-none m-0 p-0" role="list">
+        {T.steps.map((step, i) => (
+          <li class="bg-canvas rounded-[12px] p-8 shadow-card-lg flex flex-col gap-4">
+            <div class="flex items-center gap-3">
+              <span class={`font-mono text-[11px] font-medium px-2 py-1 rounded-full bg-gradient-to-r ${stepGradients[i].gradient} text-white`}>{step.eyebrow}</span>
+              <span class="font-mono text-[12px] text-mute">{stepGradients[i].num}</span>
+            </div>
+            <h3 class="text-[20px] font-semibold leading-7 tracking-[-0.6px] text-ink text-balance">{step.title}</h3>
+            <p class="text-[15px] leading-6 text-body">{step.body}</p>
+          </li>
+        ))}
+      </ol>
+    </div>
+  </section>
+
+  <!-- ── Feature Gap Matrix Preview ──────────────────────────────── -->
+  <section class="bg-canvas-soft py-16 sm:py-24 md:py-32" id="features" aria-labelledby="matrix-heading">
+    <div class="max-w-[1400px] mx-auto px-4 sm:px-6">
+      <p class="font-mono text-[12px] text-mute uppercase tracking-wider mb-4 text-center" aria-hidden="true">{T.matrix.eyebrow}</p>
+      <h2 id="matrix-heading" class="text-[24px] sm:text-[32px] font-semibold leading-tight tracking-[-1.28px] text-ink text-center mb-4 text-balance max-w-2xl mx-auto">
+        {T.matrix.h2}
+      </h2>
+      <p class="text-[16px] sm:text-[18px] leading-7 text-body text-center max-w-xl mx-auto mb-10 sm:mb-14 text-balance">
+        {T.matrix.sub}
+      </p>
+      <div class="overflow-x-auto rounded-[12px] shadow-card-lg bg-canvas" role="region" aria-label="Feature gap matrix preview">
+        <table class="w-full min-w-[560px] text-[13px]" aria-label="Competitor feature comparison">
+          <thead>
+            <tr class="border-b border-hairline">
+              <th scope="col" class="text-left font-mono text-[11px] text-mute uppercase tracking-wider px-5 py-3 w-44">Feature</th>
+              {matrixCompetitors.map(c => (
+                <th scope="col" class={`text-center font-semibold text-[13px] px-4 py-3 tracking-[-0.28px] ${c.highlight ? 'text-link' : 'text-ink'}`}>
+                  {c.highlight ? (
+                    <span class="inline-flex items-center gap-1.5">
+                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><circle cx="6" cy="6" r="5" stroke="#3b9eff" stroke-width="1.5"/><path d="M4 6l1.5 1.5L8 4" stroke="#3b9eff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                      {c.name}
+                    </span>
+                  ) : c.name}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {matrixFeatureLabels.map((feat, fi) => (
+              <tr class={`border-b border-hairline last:border-0 ${fi % 2 === 0 ? 'bg-canvas' : 'bg-canvas-soft/60'}`}>
+                <td class="px-5 py-3 text-body text-[13px] leading-5 font-medium tracking-[-0.2px]">{feat}</td>
+                {matrixCompetitors.map(c => (
+                  <td class="px-4 py-3 text-center">
+                    {c.values[fi] ? (
+                      <svg class="inline-block" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-label="Supported" role="img">
+                        <circle cx="8" cy="8" r="7" fill={c.highlight ? '#3b9eff' : 'currentColor'} fill-opacity={c.highlight ? '1' : '0.12'}/>
+                        <path d="M5 8l2 2 4-4" stroke={c.highlight ? '#fff' : 'currentColor'} stroke-opacity={c.highlight ? '1' : '0.5'} stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+                      </svg>
+                    ) : (
+                      <svg class="inline-block" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-label="Not supported" role="img">
+                        <circle cx="8" cy="8" r="7" fill="currentColor" fill-opacity="0.07"/>
+                        <path d="M6 6l4 4M10 6l-4 4" stroke="currentColor" stroke-opacity="0.25" stroke-width="1.4" stroke-linecap="round"/>
+                      </svg>
+                    )}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p class="text-center text-[13px] text-mute mt-5">{T.matrix.note}</p>
+    </div>
+  </section>
+
+  <!-- ── Feature grid ──────────────────────────────────────────────── -->
+  <section class="bg-canvas py-16 sm:py-24 md:py-32" aria-labelledby="feature-grid-heading">
+    <div class="max-w-[1400px] mx-auto px-4 sm:px-6">
+      <p class="font-mono text-[12px] text-mute uppercase tracking-wider mb-4 text-center" aria-hidden="true">{T.features.eyebrow}</p>
+      <h2 id="feature-grid-heading" class="text-[24px] sm:text-[32px] font-semibold leading-tight tracking-[-1.28px] text-ink text-center mb-10 sm:mb-14 text-balance max-w-2xl mx-auto">
+        {T.features.h2}
+      </h2>
+      <ul class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5 list-none m-0 p-0" role="list">
+        {T.featureCards.map((f, i) => (
+          <li class="bg-canvas-soft rounded-[8px] p-6 shadow-card">
+            <div class="mb-3" set:html={featureIcons[i]}></div>
+            <h3 class="text-[16px] font-semibold leading-6 tracking-[-0.4px] text-ink mb-2 flex items-center gap-2 flex-wrap">
+              {f.title}
+              {(i === 4 || i === 5) && (
+                <span class="inline-block px-[6px] py-[2px] text-[10px] font-semibold leading-none tracking-wide uppercase rounded-[3px] bg-[#1a0000] border border-[#ff2020]/40 text-[#ff2020]" style="box-shadow: 0 0 6px rgba(255,32,32,0.25);">Available Soon</span>
+              )}
+            </h3>
+            <p class="text-[14px] leading-5 text-body">{f.body}</p>
+          </li>
+        ))}
+      </ul>
+    </div>
+  </section>
+
+  <!-- ── Dark band — Auto-Scrape demo ─────────────────────────────── -->
+  <section class="dark-band py-16 sm:py-24 md:py-32" aria-labelledby="autoscrape-heading">
+    <div class="max-w-[1400px] mx-auto px-4 sm:px-6">
+
+      <!-- Row 1: Step 1 (left) + Step 2 (right) -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-16 mb-12 md:mb-16">
+
+        <!-- Step 1 -->
+        <div>
+          <p class="font-mono text-[12px] dark:text-white/40 text-ink/50 uppercase tracking-wider mb-4" aria-hidden="true">{T.scrape.eyebrow}</p>
+          <h2 id="autoscrape-heading" class="text-[22px] sm:text-[28px] font-semibold leading-tight tracking-[-1.12px] dark:text-white text-ink mb-3 text-balance">
+            {T.scrape.h2}
+          </h2>
+          <p class="text-[15px] sm:text-[16px] leading-6 dark:text-white/70 text-body mb-8 text-balance">
+            {T.scrape.sub}
+          </p>
+          <div class="bg-[#0d0d0d] dark:bg-[#0d0d0d] rounded-[8px] p-6 border border-white/10 overflow-x-auto" role="img" aria-label="Auto-scrape AI output example">
+            <pre class="font-mono text-[13px] leading-6 text-white/80 m-0 whitespace-pre-wrap"><code><span class="text-[#888]">→ Scraping https://yourwebsite.com...</span>
+<span class="text-[#00dfd8]">✓ Title:</span>       <span class="text-white">Your SaaS Product — Smart Forms for Teams</span>
+<span class="text-[#00dfd8]">✓ Category:</span>    <span class="text-white">Form Builder / No-Code Tools</span>
+<span class="text-[#00dfd8]">✓ Audience:</span>    <span class="text-white">Product teams, developers, SMBs</span>
+<span class="text-[#00dfd8]">✓ Key features:</span> <span class="text-white">Drag-and-drop, Conditional Logic, API</span>
+<span class="text-[#007cf0]">→ Finding competitors...</span>
+<span class="text-[#f9cb28]">✓ Found 14 competitors</span>  <span class="text-[#888]">in 8.3s</span>
+<span class="text-[#f9cb28]">✓ Gap matrix ready</span>      <span class="text-[#888]">48 features analyzed</span></code></pre>
+          </div>
+        </div>
+
+        <!-- Step 2 -->
+        <div>
+          <p class="font-mono text-[12px] dark:text-white/40 text-ink/50 uppercase tracking-wider mb-4" aria-hidden="true">{T.scrape.step2Title}</p>
+          <h2 class="text-[22px] sm:text-[28px] font-semibold leading-tight tracking-[-1.12px] dark:text-white text-ink mb-3 text-balance">
+            {T.scrape.step2Title.split('—').slice(1).join('—').trim()}
+          </h2>
+          <p class="text-[15px] sm:text-[16px] leading-6 dark:text-white/70 text-body mb-8 text-balance">
+            {T.scrape.step2Body}
+          </p>
+          <div class="bg-[#0d0d0d] rounded-[8px] p-6 border border-white/10 overflow-x-auto" role="img" aria-label="Discovery step example">
+            <pre class="font-mono text-[13px] leading-6 text-white/80 m-0 whitespace-pre-wrap"><code><span class="text-[#888]">→ Cross-referencing sources...</span>
+<span class="text-[#00dfd8]">✓ G2 / Capterra:</span>   <span class="text-white">8 matches found</span>
+<span class="text-[#00dfd8]">✓ App stores:</span>      <span class="text-white">3 additional tools</span>
+<span class="text-[#00dfd8]">✓ Search ranking:</span>  <span class="text-white">top 20 indexed</span>
+<span class="text-[#007cf0]">→ Deduplicating results...</span>
+<span class="text-[#f9cb28]">✓ 14 unique competitors</span>  <span class="text-[#888]">ready</span></code></pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- Row 2: Step 3 (full width) -->
+      <div>
+        <p class="font-mono text-[12px] dark:text-white/40 text-ink/50 uppercase tracking-wider mb-4" aria-hidden="true">{T.scrape.step3Title}</p>
+        <h2 class="text-[22px] sm:text-[28px] font-semibold leading-tight tracking-[-1.12px] dark:text-white text-ink mb-3 text-balance max-w-2xl">
+          {T.scrape.step3Title.split('—').slice(1).join('—').trim()}
+        </h2>
+        <p class="text-[15px] sm:text-[16px] leading-6 dark:text-white/70 text-body mb-8 text-balance max-w-2xl">
+          {T.scrape.step3Body}
+        </p>
+        <div class="bg-[#0d0d0d] rounded-[8px] p-6 border border-white/10 overflow-x-auto" role="img" aria-label="Feature gap matrix step example">
+          <pre class="font-mono text-[13px] leading-6 text-white/80 m-0 whitespace-pre-wrap"><code><span class="text-[#888]">→ Analyzing 48 features...</span>
+<span class="text-[#00dfd8]">✓ Your moat:</span>       <span class="text-white">API Access, No Email Gate</span>
+<span class="text-[#00dfd8]">✓ Gaps found:</span>      <span class="text-white">Review Tracking, Ad Monitor</span>
+<span class="text-[#00dfd8]">✓ Opportunities:</span>  <span class="text-white">3 uncontested features</span>
+<span class="text-[#007cf0]">→ Building matrix...</span>
+<span class="text-[#f9cb28]">✓ Gap matrix ready</span>       <span class="text-[#888]">export available</span>
+<span class="text-[#00dfd8]">✓ Export formats:</span>  <span class="text-white">CSV, PDF, Notion</span>
+<span class="text-[#00dfd8]">✓ Shareable link:</span>  <span class="text-white">generated in 0.4s</span></code></pre>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ── Social proof ──────────────────────────────────────────────── -->
+  <section class="bg-canvas py-16 sm:py-24 md:py-32" aria-labelledby="testimonials-heading">
+    <div class="max-w-[1400px] mx-auto px-4 sm:px-6">
+      <h2 id="testimonials-heading" class="text-[24px] sm:text-[32px] font-semibold leading-tight tracking-[-1.28px] text-ink text-center mb-10 sm:mb-14 text-balance">
+        {T.testimonials.h2}
+      </h2>
+      <ul class="grid grid-cols-1 md:grid-cols-3 gap-6 list-none m-0 p-0" role="list">
+        {T.quotes.map(testimonial => (
+          <li class="bg-canvas-soft rounded-[12px] p-8 shadow-card-md flex flex-col gap-4">
+            <svg width="20" height="16" viewBox="0 0 20 16" fill="none" aria-hidden="true">
+              <path d="M0 16V9.6C0 4.267 2.8 1.067 8.4 0l.8 1.6C6.933 2.267 5.867 3.6 5.6 5.6H8V16H0zm12 0V9.6C12 4.267 14.8 1.067 20.4 0l.8 1.6C18.933 2.267 17.867 3.6 17.6 5.6H20V16h-8z" fill="currentColor" class="text-hairline"/>
+            </svg>
+            <p class="text-[15px] leading-6 text-ink flex-1">{testimonial.quote}</p>
+            <div>
+              <p class="text-[14px] font-medium leading-5 tracking-[-0.28px] text-ink">{testimonial.name}</p>
+              <p class="text-[12px] text-mute leading-4 mt-0.5">{testimonial.role}</p>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  </section>
+
+  <!-- ── Final CTA ─────────────────────────────────────────────────── -->
+  <section class="dark-band py-16 sm:py-24 md:py-32" aria-labelledby="final-cta-heading">
+    <div class="max-w-[1400px] mx-auto px-4 sm:px-6 text-center">
+      <h2 id="final-cta-heading" class="text-[32px] sm:text-[40px] md:text-[48px] font-semibold leading-[1.1] tracking-[-2px] md:tracking-[-2.4px] dark:text-white text-ink mb-6 text-balance max-w-2xl mx-auto">
+        {T.cta.h2}
+      </h2>
+      <p class="text-[16px] sm:text-[18px] leading-7 dark:text-white/70 text-body max-w-lg mx-auto mb-10 text-balance">
+        {T.cta.sub}
+      </p>
+      <form
+        class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 max-w-xl mx-auto"
+        action="#" method="get" aria-label="Competitor finder — bottom CTA"
+      >
+        <label for="cta-url" class="sr-only">Your website URL</label>
+        <input
+          id="cta-url" type="url" name="url" placeholder={T.hero.placeholder} autocomplete="url" required
+          class="flex-1 h-12 px-4 dark:bg-white/10 bg-black/10 dark:text-white text-ink text-[15px] leading-5 dark:border-white/20 border-black/20 border rounded-[8px] dark:placeholder:text-white/40 placeholder:text-ink/40 focus-visible:outline-none dark:focus-visible:border-white/60 focus-visible:border-ink/60 focus-visible:ring-2 dark:focus-visible:ring-white/20 focus-visible:ring-ink/20 transition-colors"
+        />
+        <button type="submit" class="inline-flex items-center justify-center h-12 px-6 dark:bg-white dark:text-[#111] bg-[#111] text-white text-[16px] font-medium leading-6 rounded-[100px] hover:opacity-80 transition-opacity focus-visible:focus-ring whitespace-nowrap shrink-0">
+          {T.cta.cta}
+        </button>
+      </form>
+    </div>
+  </section>
+  <!-- ── SEO Article ─────────────────────────────────────────────── -->
+  <section class="bg-canvas py-16 sm:py-24" aria-labelledby="seo-article-heading">
+    <div class="max-w-[760px] mx-auto px-4 sm:px-6">
+      <h2 id="seo-article-heading" class="text-[26px] sm:text-[32px] font-semibold leading-tight tracking-[-1.28px] text-ink mb-6 text-balance">
+        The Best Free Competitor Finder — Discover Your Rivals in Seconds
+      </h2>
+      <div class="prose-like space-y-5 text-[16px] leading-7 text-body">
+
+        <p>
+          If you've ever wondered <strong class="text-ink font-medium">who your real online competitors are</strong>, you're not alone. Whether you're launching a startup, refining your positioning, or planning your next marketing push, finding your competitors is the first step. <strong class="text-ink font-medium">findmycompetitor</strong> is the fastest <strong class="text-ink font-medium">competitor finder</strong> tool available — simply paste your URL and our AI does the rest in under 10 seconds.
+        </p>
+
+        <h3 class="text-[20px] font-semibold leading-7 tracking-[-0.6px] text-ink pt-2">What Is a Competitor Finder?</h3>
+        <p>
+          A <strong class="text-ink font-medium">competitor finder</strong> is a tool that analyzes your website and automatically identifies businesses offering similar products or services. Instead of spending hours on manual Google searches, a <strong class="text-ink font-medium">competitor website finder</strong> cross-references multiple data sources — search rankings, app directories, product review platforms — and returns a clean, prioritized list of rivals. Our tool goes further by generating a full feature gap matrix so you can see exactly where you win and where you fall short.
+        </p>
+
+        <h3 class="text-[20px] font-semibold leading-7 tracking-[-0.6px] text-ink pt-2">Find Competitors Website Free — No Email Required</h3>
+        <p>
+          Most competitor research tools lock results behind a paywall or demand an email sign-up before showing you anything useful. findmycompetitor lets you <strong class="text-ink font-medium">find competitors website free</strong> with zero friction. Paste your URL, hit the button, and within seconds you'll see up to 14 competitors ranked by relevance — completely free, no account needed.
+        </p>
+        <p>
+          This approach means you can validate your competitive landscape instantly, whether you're doing early-stage research or preparing for a board presentation. Our free tier is genuinely useful, not a watered-down teaser.
+        </p>
+
+        <h3 class="text-[20px] font-semibold leading-7 tracking-[-0.6px] text-ink pt-2">How to Find Similar Websites to Yours</h3>
+        <p>
+          Our AI-powered <strong class="text-ink font-medium">similar website finder</strong> works in three steps:
+        </p>
+        <ol class="list-decimal list-inside space-y-2 pl-2">
+          <li><strong class="text-ink font-medium">Scrape & Understand</strong> — Our engine reads your homepage, extracts your product category, target audience, and key features automatically.</li>
+          <li><strong class="text-ink font-medium">Discover</strong> — It cross-references G2, Capterra, app stores, and live search rankings to surface the most relevant similar websites.</li>
+          <li><strong class="text-ink font-medium">Analyze</strong> — You get a feature gap matrix: 48+ features compared side-by-side so you can spot uncontested opportunities immediately.</li>
+        </ol>
+        <p>
+          This end-to-end workflow replaces hours of manual research with a single click — making it the most efficient <strong class="text-ink font-medium">competitor website finder</strong> for founders, product managers, and growth teams.
+        </p>
+
+        <h3 class="text-[20px] font-semibold leading-7 tracking-[-0.6px] text-ink pt-2">Why Use findmycompetitor Over Other Tools?</h3>
+        <p>
+          Traditional SEO platforms like Semrush or Ahrefs can show you keyword overlap, but they don't tell you <em>what features your competitors have that you don't</em>. findmycompetitor is purpose-built for product and competitive intelligence:
+        </p>
+        <ul class="list-disc list-inside space-y-2 pl-2">
+          <li>Instant results — no waiting for crawl queues or data refreshes</li>
+          <li>Feature gap matrix — understand product differences, not just traffic</li>
+          <li>No email gate — start your <strong class="text-ink font-medium">competitor finder</strong> search immediately</li>
+          <li>Export to CSV, PDF, or Notion — share findings with your team in one click</li>
+          <li>Multi-language support — competitive research in 6 languages</li>
+        </ul>
+
+        <h3 class="text-[20px] font-semibold leading-7 tracking-[-0.6px] text-ink pt-2">Who Should Use a Competitor Website Finder?</h3>
+        <p>
+          The short answer: anyone who builds or markets a product online. Specifically, a <strong class="text-ink font-medium">competitor website finder</strong> is invaluable for:
+        </p>
+        <ul class="list-disc list-inside space-y-2 pl-2">
+          <li><strong class="text-ink font-medium">Founders</strong> validating their niche before investing months of development</li>
+          <li><strong class="text-ink font-medium">Product managers</strong> building roadmaps informed by real market gaps</li>
+          <li><strong class="text-ink font-medium">Marketers</strong> crafting positioning that directly addresses competitor weaknesses</li>
+          <li><strong class="text-ink font-medium">Investors</strong> performing rapid due diligence on competitive landscapes</li>
+        </ul>
+
+        <h3 class="text-[20px] font-semibold leading-7 tracking-[-0.6px] text-ink pt-2">Start Your Competitor Search Now</h3>
+        <p>
+          Ready to <strong class="text-ink font-medium">find similar websites</strong> to yours and uncover your true competitive landscape? Paste your URL in the search bar above. In under 10 seconds, you'll have a complete competitor list and feature gap analysis — free, instant, and no sign-up required. findmycompetitor is the simplest and most powerful <strong class="text-ink font-medium">similar website finder</strong> built for modern product teams.
+        </p>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ── FAQ ───────────────────────────────────────────────────────── -->
+  <section id="faq" class="bg-canvas py-16 sm:py-24" aria-labelledby="faq-heading">
+    <div class="max-w-[760px] mx-auto px-4 sm:px-6">
+      <h2 id="faq-heading" class="text-[26px] sm:text-[32px] font-semibold leading-tight tracking-[-1.28px] text-ink mb-10 text-balance">
+        Frequently Asked Questions
+      </h2>
+      <dl class="space-y-6">
+        {[
+          {
+            q: "What is the Free AI Competitor Finder Tool?",
+            a: "The Free AI Competitor Finder Tool is an AI-powered tool that automatically identifies websites competing with yours. Paste your URL and within seconds you get a ranked list of up to 14 competitors — no account or credit card required."
+          },
+          {
+            q: "What Is a Competitor Finder?",
+            a: "A competitor finder is a tool that analyzes your website and surfaces businesses offering similar products or services. It cross-references search rankings, app directories, and review platforms to return a prioritized list of rivals without manual Googling."
+          },
+          {
+            q: "How Does It Work?",
+            a: "Our engine scrapes and understands your homepage to extract your product category, audience, and key features. It then discovers competitors across G2, Capterra, app stores, and live search results, and finally produces a side-by-side feature gap matrix comparing 48+ features."
+          },
+          {
+            q: "Why Find Your Competitors?",
+            a: "Knowing your competitors lets you sharpen positioning, discover feature gaps, benchmark pricing, and identify untapped market opportunities — all of which directly improve your product strategy and marketing effectiveness."
+          },
+          {
+            q: "How We Find Your Website Competitors?",
+            a: "We combine AI-driven website analysis with real-time data from search rankings, G2, Capterra, product review sites, and app stores. Our algorithm ranks results by relevance to your specific niche and audience."
+          },
+          {
+            q: "Who Are My Competitors?",
+            a: "Your competitors are businesses targeting the same audience with similar products or services. Paste your URL into our tool and you'll get a personalized competitor list in under 10 seconds."
+          },
+          {
+            q: "How Accurate Is the Competitor Data?",
+            a: "Our AI cross-references multiple live data sources and re-ranks results by semantic similarity to your offering, achieving high relevance scores. Accuracy improves further when your homepage clearly describes your product and target audience."
+          },
+          {
+            q: "How do I find competitors of a website?",
+            a: "Simply paste the website URL into the search bar at the top of this page and click the button. Our AI will return a ranked competitor list within seconds — no sign-up required."
+          },
+          {
+            q: "Where can I find competitor data?",
+            a: "Competitor data is aggregated from search engine rankings, G2, Capterra, product directories, and app stores. Our tool compiles and normalizes all of this automatically so you don't have to visit each source manually."
+          },
+          {
+            q: "How do you track competitors?",
+            a: "After the initial analysis, you can use our monitoring feature to receive alerts whenever a tracked competitor adds, removes, or changes features on their website — keeping you informed without manual check-ins."
+          },
+          {
+            q: "Why should you use our Free Competitor Finder tool?",
+            a: "It's the fastest way to map your competitive landscape — zero cost, zero sign-up, results in under 10 seconds, and a full feature gap matrix included. Most paid tools charge hundreds of dollars per month for less detail."
+          },
+          {
+            q: "Is there any competitor website finder free?",
+            a: "Yes — findmycompetitor is completely free. You can find up to 14 competitors and get a full feature gap matrix without creating an account or entering payment details."
+          },
+          {
+            q: "Where does the AI Competitor Finder collect data from?",
+            a: "Data is collected from live web search rankings, G2, Capterra, product review platforms, and app store listings. All sources are refreshed regularly to ensure results stay current."
+          },
+          {
+            q: "How can I analyze my competitors after finding them?",
+            a: "Once competitors are identified, our tool generates a Feature Gap Matrix that compares your product against each competitor across 48+ features. You can also click through to each competitor's profile to explore their positioning, pricing, and recent changes."
+          },
+          {
+            q: "What is Feature Gap Matrix?",
+            a: "A Feature Gap Matrix is a side-by-side comparison table showing which features you and your competitors offer. It highlights where you lead, where you lag, and which unmet features represent the biggest opportunities in your market."
+          },
+          {
+            q: "How to monitor any feature changes of the competitor website?",
+            a: "Enable monitoring for any competitor from your results page. Our system periodically checks their site and notifies you when features are added, removed, or updated — so you're always aware of competitive moves."
+          }
+        ].map(({ q, a }) => (
+          <div class="border-b dark:border-white/10 border-black/10 pb-6">
+            <dt class="text-[17px] font-semibold leading-7 text-ink dark:text-white mb-2">{q}</dt>
+            <dd class="text-[15px] leading-7 text-body dark:text-white/70">{a}</dd>
+          </div>
+        ))}
+      </dl>
+    </div>
+  </section>
+
+  <script type="application/ld+json" set:html={JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      { "@type": "Question", "name": "What is the Free AI Competitor Finder Tool?", "acceptedAnswer": { "@type": "Answer", "text": "The Free AI Competitor Finder Tool is an AI-powered tool that automatically identifies websites competing with yours. Paste your URL and within seconds you get a ranked list of up to 14 competitors — no account or credit card required." } },
+      { "@type": "Question", "name": "What Is a Competitor Finder?", "acceptedAnswer": { "@type": "Answer", "text": "A competitor finder is a tool that analyzes your website and surfaces businesses offering similar products or services. It cross-references search rankings, app directories, and review platforms to return a prioritized list of rivals without manual Googling." } },
+      { "@type": "Question", "name": "How Does It Work?", "acceptedAnswer": { "@type": "Answer", "text": "Our engine scrapes and understands your homepage to extract your product category, audience, and key features. It then discovers competitors across G2, Capterra, app stores, and live search results, and produces a side-by-side feature gap matrix comparing 48+ features." } },
+      { "@type": "Question", "name": "Why Find Your Competitors?", "acceptedAnswer": { "@type": "Answer", "text": "Knowing your competitors lets you sharpen positioning, discover feature gaps, benchmark pricing, and identify untapped market opportunities — directly improving your product strategy and marketing effectiveness." } },
+      { "@type": "Question", "name": "How We Find Your Website Competitors?", "acceptedAnswer": { "@type": "Answer", "text": "We combine AI-driven website analysis with real-time data from search rankings, G2, Capterra, product review sites, and app stores. Our algorithm ranks results by relevance to your specific niche and audience." } },
+      { "@type": "Question", "name": "Who Are My Competitors?", "acceptedAnswer": { "@type": "Answer", "text": "Your competitors are businesses targeting the same audience with similar products or services. Paste your URL into our tool and you'll get a personalized competitor list in under 10 seconds." } },
+      { "@type": "Question", "name": "How Accurate Is the Competitor Data?", "acceptedAnswer": { "@type": "Answer", "text": "Our AI cross-references multiple live data sources and re-ranks results by semantic similarity to your offering, achieving high relevance scores. Accuracy improves when your homepage clearly describes your product and target audience." } },
+      { "@type": "Question", "name": "How do I find competitors of a website?", "acceptedAnswer": { "@type": "Answer", "text": "Paste the website URL into the search bar at the top of this page and click the button. Our AI returns a ranked competitor list within seconds — no sign-up required." } },
+      { "@type": "Question", "name": "Where can I find competitor data?", "acceptedAnswer": { "@type": "Answer", "text": "Competitor data is aggregated from search engine rankings, G2, Capterra, product directories, and app stores. Our tool compiles and normalizes all of this automatically." } },
+      { "@type": "Question", "name": "How do you track competitors?", "acceptedAnswer": { "@type": "Answer", "text": "After the initial analysis, you can enable monitoring to receive alerts whenever a tracked competitor adds, removes, or changes features on their website." } },
+      { "@type": "Question", "name": "Why should you use our Free Competitor Finder tool?", "acceptedAnswer": { "@type": "Answer", "text": "It's the fastest way to map your competitive landscape — zero cost, zero sign-up, results in under 10 seconds, and a full feature gap matrix included. Most paid tools charge hundreds of dollars per month for less detail." } },
+      { "@type": "Question", "name": "Is there any competitor website finder free?", "acceptedAnswer": { "@type": "Answer", "text": "Yes — findmycompetitor is completely free. You can find up to 14 competitors and get a full feature gap matrix without creating an account or entering payment details." } },
+      { "@type": "Question", "name": "Where does the AI Competitor Finder collect data from?", "acceptedAnswer": { "@type": "Answer", "text": "Data is collected from live web search rankings, G2, Capterra, product review platforms, and app store listings. All sources are refreshed regularly to ensure results stay current." } },
+      { "@type": "Question", "name": "How can I analyze my competitors after finding them?", "acceptedAnswer": { "@type": "Answer", "text": "Our tool generates a Feature Gap Matrix comparing your product against each competitor across 48+ features. You can also click through to each competitor's profile to explore their positioning, pricing, and recent changes." } },
+      { "@type": "Question", "name": "What is Feature Gap Matrix?", "acceptedAnswer": { "@type": "Answer", "text": "A Feature Gap Matrix is a side-by-side comparison table showing which features you and your competitors offer. It highlights where you lead, where you lag, and which unmet features represent the biggest market opportunities." } },
+      { "@type": "Question", "name": "How to monitor any feature changes of the competitor website?", "acceptedAnswer": { "@type": "Answer", "text": "Enable monitoring for any competitor from your results page. Our system periodically checks their site and notifies you when features are added, removed, or updated — so you're always aware of competitive moves." } }
+    ]
+  })} />
+
+  <!-- ── Print Frame (visible only during print/PDF export) ──────── -->
+  <div id="print-frame" class="hidden" aria-hidden="true"></div>
+
+  <script>
+    const section = document.getElementById('analysis-results')!;
+    const loading = document.getElementById('results-loading')!;
+    const errorEl = document.getElementById('results-error')!;
+    const output = document.getElementById('results-output')!;
+    const summaryEl = document.getElementById('results-summary')!;
+    const competitorsList = document.getElementById('results-competitors')!;
+    const matrixHead = document.getElementById('results-matrix-head')!;
+    const matrixBody = document.getElementById('results-matrix-body')!;
+
+    let lastSearchedUrl = '';
+
+    function show(el: HTMLElement) { el.classList.remove('hidden'); }
+    function hide(el: HTMLElement) { el.classList.add('hidden'); }
+
+    const LOADING_STEPS = [
+      { text: '🔍 Scraping and parsing target website data...', dot: 0 },
+      { text: '🌐 Initiating real-time search index queries...', dot: 1 },
+      { text: '🧠 Contextualizing competitor semantics via LLM...', dot: 2 },
+      { text: '📊 Compiling feature matrix and gap analysis...', dot: 3 },
+    ];
+
+    function startLoadingSequence(): () => void {
+      const stepText = document.getElementById('loading-step-text')!;
+      const dots = [1, 2, 3, 4].map(n => document.getElementById(`dot-${n}`)!);
+      let step = 0;
+
+      function updateStep(i: number) {
+        stepText.textContent = LOADING_STEPS[i].text;
+        dots.forEach((d, idx) => d.style.opacity = idx <= i ? '1' : '0.3');
+      }
+
+      updateStep(0);
+      const interval = setInterval(() => {
+        step = Math.min(step + 1, LOADING_STEPS.length - 1);
+        updateStep(step);
+        if (step === LOADING_STEPS.length - 1) clearInterval(interval);
+      }, 1500);
+
+      return () => clearInterval(interval);
+    }
+
+    const CHECK_SVG = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-label="Yes" class="inline-block"><circle cx="8" cy="8" r="7" fill="#3b9eff" fill-opacity="0.15"/><path d="M5 8l2 2 4-4" stroke="#3b9eff" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    const CROSS_SVG = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-label="No" class="inline-block"><circle cx="8" cy="8" r="7" fill="currentColor" fill-opacity="0.07"/><path d="M6 6l4 4M10 6l-4 4" stroke="currentColor" stroke-opacity="0.3" stroke-width="1.4" stroke-linecap="round"/></svg>';
+
+    async function handleSubmit(e: SubmitEvent) {
+      e.preventDefault();
+      const form = e.currentTarget as HTMLFormElement;
+      const url = (form.querySelector('input[type="url"]') as HTMLInputElement).value.trim();
+      if (!url) return;
+
+      lastSearchedUrl = url;
+
+      show(section);
+      show(loading);
+      hide(errorEl);
+      hide(output);
+      section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+      const stopSequence = startLoadingSequence();
+
+      try {
+        const res = await fetch('/api/analyze', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url }),
+        });
+        const data = await res.json();
+
+        stopSequence();
+
+        if (!res.ok || !data.success) {
+          const err = new Error(data.error ?? 'Analysis failed') as any;
+          err.serviceUnavailable = data.serviceUnavailable ?? res.status === 503;
+          throw err;
+        }
+
+        const { analysis } = data;
+
+        // Summary
+        summaryEl.innerHTML = `
+          <div><p class="text-mute font-mono text-[11px] uppercase tracking-wider mb-1">Audience</p><p class="text-ink">${analysis.target_summary.audience}</p></div>
+          <div><p class="text-mute font-mono text-[11px] uppercase tracking-wider mb-1">Monetization</p><p class="text-ink">${analysis.target_summary.monetization}</p></div>
+        `;
+
+        // Competitors
+        competitorsList.innerHTML = analysis.competitors.map((c: any) => `
+          <li class="flex items-start justify-between gap-4 bg-canvas rounded-[8px] border border-hairline p-4">
+            <div>
+              <a href="${c.url}" target="_blank" rel="noopener noreferrer" class="font-semibold text-link hover:underline text-[15px]">${c.name}</a>
+              <p class="text-body text-[13px] mt-1">${c.description}</p>
+            </div>
+            <span class="shrink-0 font-mono text-[12px] bg-primary/10 text-primary rounded-full px-2 py-0.5">${c.match_score}% match</span>
+          </li>
+        `).join('');
+
+        // Matrix header
+        const compNames: string[] = analysis.competitors.map((c: any) => c.name);
+        matrixHead.innerHTML = `
+          <th class="text-left px-4 py-3 text-mute font-mono text-[11px] uppercase tracking-wider">Feature</th>
+          <th class="px-4 py-3 text-center text-[12px] font-semibold text-link">You</th>
+          ${compNames.map((n: string) => `<th class="px-4 py-3 text-center text-[12px] font-semibold text-ink">${n}</th>`).join('')}
+        `;
+
+        // Matrix rows — support up to 5 competitors
+        matrixBody.innerHTML = analysis.matrix.map((row: any, i: number) => {
+          const cells = [row.target_has, row.comp_1_has, row.comp_2_has, row.comp_3_has, row.comp_4_has, row.comp_5_has]
+            .slice(0, compNames.length + 1)
+            .map(has => `<td class="px-4 py-3 text-center">${has ? CHECK_SVG : CROSS_SVG}</td>`)
+            .join('');
+          return `
+            <tr class="${i % 2 === 0 ? 'bg-canvas' : 'bg-canvas-soft/60'} border-b border-hairline last:border-0">
+              <td class="px-4 py-3 text-body text-[13px] font-medium">${row.feature_name}${row.is_gap ? ' <span class="text-[10px] font-mono bg-yellow-100 text-yellow-700 rounded px-1 ml-1">gap</span>' : ''}</td>
+              ${cells}
+            </tr>`;
+        }).join('');
+
+        hide(loading);
+        show(output);
+      } catch (err: any) {
+        stopSequence();
+        hide(loading);
+
+        const isUnavailable = err.serviceUnavailable;
+        if (isUnavailable) {
+          errorEl.className = 'rounded-[8px] border border-amber-200 bg-amber-50 p-5 text-[14px] text-amber-800';
+          errorEl.innerHTML = `
+            <p class="font-semibold mb-1">⏳ We're experiencing temporary high demand</p>
+            <p class="text-amber-700">Our AI service is currently overloaded. This is usually short-lived — please wait a moment and try again.</p>
+          `;
+        } else {
+          errorEl.className = 'rounded-[8px] border border-red-200 bg-red-50 p-5 text-[14px] text-red-700';
+          errorEl.textContent = err.message ?? 'Something went wrong. Please try again.';
+        }
+
+        show(errorEl);
+      }
+    }
+
+    document.addEventListener('submit', (e) => {
+      const form = e.target as HTMLFormElement;
+      if (form.getAttribute('aria-label')?.startsWith('Competitor finder')) {
+        handleSubmit(e as SubmitEvent);
+      }
+    });
+
+    // ── Export CSV ──────────────────────────────────────────────────
+    document.getElementById('export-csv-btn')!.addEventListener('click', () => {
+      const rows: string[][] = [];
+
+      // Branding header
+      rows.push(['findmycompetitor.com — Competitor Analysis Report']);
+      rows.push([`Analyzed URL: ${lastSearchedUrl}`]);
+      rows.push([`Generated: ${new Date().toLocaleString()}`]);
+      rows.push([]);
+
+      // Matrix header row
+      const thCells = Array.from(matrixHead.querySelectorAll('th'));
+      rows.push(thCells.map(th => th.textContent?.trim() ?? ''));
+
+      // Data rows
+      Array.from(matrixBody.querySelectorAll('tr')).forEach(tr => {
+        const cells = Array.from(tr.querySelectorAll('td')).map(td => {
+          const svg = td.querySelector('svg');
+          if (svg) return svg.getAttribute('aria-label') === 'Yes' ? 'Yes' : 'No';
+          return td.textContent?.trim() ?? '';
+        });
+        rows.push(cells);
+      });
+
+      const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'findmycompetitor-analysis.csv';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
+
+    // ── Export PDF ──────────────────────────────────────────────────
+    document.getElementById('export-pdf-btn')!.addEventListener('click', () => {
+      // Build matrix table HTML
+      const thCells = Array.from(matrixHead.querySelectorAll('th')).map(th => th.textContent?.trim() ?? '');
+      const tableRows = Array.from(matrixBody.querySelectorAll('tr')).map(tr =>
+        Array.from(tr.querySelectorAll('td')).map(td => {
+          const svg = td.querySelector('svg');
+          if (svg) return svg.getAttribute('aria-label') === 'Yes' ? '✓' : '✗';
+          return td.textContent?.trim() ?? '';
+        })
+      );
+
+      const theadHtml = `<tr>${thCells.map(t => `<th>${t}</th>`).join('')}</tr>`;
+      const tbodyHtml = tableRows.map(row =>
+        `<tr>${row.map((cell, i) => `<td style="${i > 0 ? 'text-align:center;' : ''} color:${cell === '✓' ? '#0070f3' : cell === '✗' ? '#aaa' : 'inherit'}">${cell}</td>`).join('')}</tr>`
+      ).join('');
+
+      // Competitors list HTML
+      const compItems = Array.from(competitorsList.querySelectorAll('li')).map(li => {
+        const name = li.querySelector('a')?.textContent?.trim() ?? '';
+        const url = li.querySelector('a')?.getAttribute('href') ?? '';
+        const desc = li.querySelector('p')?.textContent?.trim() ?? '';
+        const score = li.querySelector('span')?.textContent?.trim() ?? '';
+        return `<tr><td><strong>${name}</strong><br><small style="color:#555">${url}</small></td><td style="color:#555;font-size:12px">${desc}</td><td style="text-align:center;color:#0070f3;font-weight:600">${score}</td></tr>`;
+      }).join('');
+
+      const printFrame = document.getElementById('print-frame')!;
+      printFrame.innerHTML = `
+        <div style="font-family:system-ui,sans-serif;color:#111;max-width:100%">
+          <!-- Branding header -->
+          <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #0070f3;padding-bottom:12px;margin-bottom:20px">
+            <div style="display:flex;align-items:center;gap:8px">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="#0070f3" stroke-width="1.5"/><circle cx="12" cy="12" r="6" stroke="#0070f3" stroke-width="1.5" stroke-dasharray="3 2"/><circle cx="12" cy="12" r="2" fill="#0070f3"/><line x1="12" y1="12" x2="20" y2="6" stroke="#3b9eff" stroke-width="1.5" stroke-linecap="round"/></svg>
+              <span style="font-size:18px;font-weight:700;letter-spacing:-0.5px;color:#111">findmycompetitor.com</span>
+            </div>
+            <span style="font-size:11px;color:#888">Generated ${new Date().toLocaleString()}</span>
+          </div>
+
+          <h1 style="font-size:16px;font-weight:600;margin:0 0 6px 0">Competitor Analysis Report</h1>
+          <p style="font-size:12px;color:#555;margin:0 0 20px 0">Analyzed URL: <strong style="color:#0070f3">${lastSearchedUrl}</strong></p>
+
+          <h2 style="font-size:13px;font-weight:600;margin:0 0 8px 0;text-transform:uppercase;letter-spacing:0.5px;color:#555">Top Competitors</h2>
+          <table style="width:100%;border-collapse:collapse;margin-bottom:24px;font-size:12px">
+            <thead><tr style="background:#f5f5f5"><th style="padding:6px 10px;border:1px solid #ddd;text-align:left">Name &amp; URL</th><th style="padding:6px 10px;border:1px solid #ddd;text-align:left">Description</th><th style="padding:6px 10px;border:1px solid #ddd;text-align:center">Match</th></tr></thead>
+            <tbody>${compItems}</tbody>
+          </table>
+
+          <h2 style="font-size:13px;font-weight:600;margin:0 0 8px 0;text-transform:uppercase;letter-spacing:0.5px;color:#555">Feature Gap Matrix</h2>
+          <table style="width:100%;border-collapse:collapse;font-size:11px">
+            <thead>${theadHtml}</thead>
+            <tbody>${tbodyHtml}</tbody>
+          </table>
+
+          <p style="font-size:10px;color:#aaa;margin-top:20px;text-align:center">findmycompetitor.com — Free AI Competitor Intelligence Tool</p>
+        </div>
+      `;
+
+      window.print();
+    });
+  </script>
+
 </Layout>
