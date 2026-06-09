@@ -1,91 +1,70 @@
-import type { SearchResult } from "./search";
-import { callVenice } from "./venice";
+import { callVenice } from './venice';
 
-export interface AnalysisResult {
-  target_summary: {
-    audience: string;
-    monetization: string;
-  };
-  competitors: Array<{
-    name: string;
-    url: string;
-    match_score: number;
-    description: string;
-  }>;
-  matrix: Array<{
-    feature_name: string;
-    target_has: boolean;
-    comp_1_has: boolean;
-    comp_2_has: boolean;
-    comp_3_has: boolean;
-    comp_4_has: boolean;
-    comp_5_has: boolean;
-    is_gap: boolean;
-  }>;
+export function extractBusinessContext(targetMarkdown: string): { name: string; niche: string; query: string } {
+  const lines = targetMarkdown.split('\n').map(l => l.trim()).filter(Boolean);
+
+  // Jina includes "Title: ..." and "Description: ..." at the top
+  const titleLine = lines.find(l => /^title:/i.test(l))?.replace(/^title:\s*/i, '')
+    ?? lines.find(l => /^#{1,2}\s/.test(l))?.replace(/^#{1,2}\s+/, '')
+    ?? lines[0];
+
+  const descLine = lines.find(l => /^description:/i.test(l))?.replace(/^description:\s*/i, '')
+    ?? lines.find(l => l.length > 40 && !l.startsWith('#') && !l.startsWith('!'))
+    ?? '';
+
+  const query = `${titleLine} ${descLine}`.slice(0, 120).trim() + ' competitors';
+  return { name: titleLine, niche: descLine, query };
 }
 
-type CompetitorInput = SearchResult & { scrapedContent?: string };
+export async function analyzeCompetitors(targetMarkdown: string, searchResults: any[]) {
+  const systemPrompt = `You are a competitive intelligence analyst. Perform a precise capability comparison between the TARGET business and its competitors.
 
-const SCHEMA_STUB = `{"target_summary":{"audience":"...","monetization":"..."},"competitors":[{"name":"...","url":"...","match_score":0,"description":"..."}],"matrix":[{"feature_name":"...","target_has":true,"comp_1_has":true,"comp_2_has":true,"comp_3_has":true,"comp_4_has":true,"comp_5_has":true,"is_gap":false}]}`;
+RULES:
+- Only extract true operational/commercial differentiators: fulfillment methods, warranty terms, pricing tiers, payment options (COD, installments), geographic coverage, product specializations, certifications, B2B/wholesale programs, delivery SLAs.
+- FORBIDDEN features: search bar, navigation, login, cart, contact form, responsive design, social media links.
+- "target_has" must reflect what is ACTUALLY present in the Target Markdown — read it carefully before setting this value.
+- "is_gap" = true ONLY when target_has is FALSE (the target is missing something competitors offer). If target_has is true, is_gap must be false.
+- Return EXACTLY 5 competitors. If search results have fewer, infer well-known alternatives in the same niche.
 
-export async function analyzeCompetitors(
-  targetContent: string,
-  candidates: CompetitorInput[]
-): Promise<AnalysisResult> {
-  const competitorContext = candidates
-    .slice(0, 10)
-    .map((c, i) => {
-      const content = (c as any).scrapedContent
-        ? (c as any).scrapedContent.slice(0, 2500)
-        : c.snippet;
-      let rootUrl = c.url;
-      try { const u = new URL(c.url); rootUrl = `${u.protocol}//${u.hostname}`; } catch {}
-      return `CANDIDATE ${i + 1}: ${c.title}\nURL: ${rootUrl}\n${content}`;
-    })
-    .join("\n\n---\n\n");
+OUTPUT: one raw JSON object, no markdown fences, no extra text.
 
-  const prompt = `You are a senior competitive intelligence analyst. Analyze the target business and identify its top 5 most relevant direct competitors from the candidates provided.
+{
+  "target_summary": { "audience": "specific buyer persona", "monetization": "revenue model" },
+  "competitors": [
+    { "name": "Brand", "url": "https://...", "match_score": 85, "description": "positioning summary" }
+  ],
+  "matrix": [
+    { "feature_name": "Differentiator", "target_has": true, "competitor_values": [true, false], "is_gap": false }
+  ]
+}`;
 
-TARGET BUSINESS:
-${targetContent.slice(0, 4000)}
+  const userContext = `TARGET WEBSITE CONTENT (read thoroughly to determine what the target actually offers):
+${targetMarkdown.slice(0, 5000)}
 
-COMPETITOR CANDIDATES:
-${competitorContext}
+COMPETITOR SEARCH RESULTS:
+${JSON.stringify(searchResults)}`;
 
-INSTRUCTIONS:
+  const rawText = await callVenice(`${systemPrompt}\n\n${userContext}`, 'qwen3-5-9b');
 
-1. IDENTIFY THE TARGET'S NICHE: Read the target content and determine the single most specific characteristic that defines this business — the technology, methodology, or differentiator that sets it apart from generic alternatives in its space. Use only what the content says; do not import assumptions from other industries.
+  try {
+    const jsonStart = rawText.indexOf('{');
+    const jsonEnd = rawText.lastIndexOf('}');
+    if (jsonStart === -1 || jsonEnd === -1) throw new Error("No JSON found in response.");
 
-2. FIND THE BEST 5 COMPETITORS: Only include candidates that share the same niche characteristic identified in step 1. A candidate in the same broad category but different niche is NOT a match. Prefer niche-correct lower-known competitors over well-known but niche-wrong ones. Skip blog posts, news articles, app store listings, and review aggregators.
+    const parsedData = JSON.parse(rawText.substring(jsonStart, jsonEnd + 1));
 
-3. RANK BY MATCH SCORE (highest first): Score 0–100. Niche match = 40 pts. Feature overlap = 30 pts. Audience match = 20 pts. Business model = 10 pts. Sort highest to lowest.
+    if (!parsedData.competitors) parsedData.competitors = [];
+    if (!parsedData.matrix) parsedData.matrix = [];
 
-4. COMPETITOR URL: Root homepage only. Strip all paths.
+    // Enforce is_gap consistency and strip UI noise
+    const noisyKeys = ['search', 'navigation', 'cart', 'menu', 'login', 'contact'];
+    parsedData.matrix = parsedData.matrix
+      .filter((row: any) => !noisyKeys.some(k => (row.feature_name ?? '').toLowerCase().includes(k)))
+      .map((row: any) => ({ ...row, is_gap: row.target_has === false }));
 
-5. DESCRIPTION: 2 sentences. First: what the platform does including its niche. Second: which specific features it shares with the target.
-
-6. FEATURE MATRIX: List 6–8 of the target's actual features as rows. Mark true only when explicitly evidenced in candidate content. Set is_gap=true only when target_has=false and 2+ competitors have it.
-
-Respond with ONLY valid JSON in this exact shape, no other text:
-${SCHEMA_STUB}`;
-
-  const text = await callVenice(prompt);
-  const parsed = JSON.parse(text) as AnalysisResult;
-
-  if (!parsed.competitors?.length || !parsed.matrix?.length)
-    throw new Error("Incomplete analysis returned from Venice");
-
-  // Normalize URLs to root homepage
-  parsed.competitors.forEach(c => {
-    try { const u = new URL(c.url); c.url = `${u.protocol}//${u.hostname}`; } catch {}
-    c.match_score = Math.max(0, Math.min(100, Math.round(c.match_score)));
-  });
-
-  // Sort competitors by match_score descending
-  parsed.competitors.sort((a, b) => b.match_score - a.match_score);
-
-  // Enforce is_gap consistency
-  parsed.matrix.forEach(row => { if (row.target_has) row.is_gap = false; });
-
-  return parsed;
+    return parsedData;
+  } catch (err) {
+    console.error("CRITICAL_MATRIX_PARSING_FAULT.", err);
+    throw new Error("Failed to parse market matrix from Venice response.");
+  }
 }

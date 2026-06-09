@@ -593,41 +593,80 @@ const pricingMeta = [
     const competitorsList = document.getElementById('results-competitors')!;
     const matrixHead = document.getElementById('results-matrix-head')!;
     const matrixBody = document.getElementById('results-matrix-body')!;
+    const stepText = document.getElementById('loading-step-text')!;
+    const dots = [1, 2, 3, 4].map(n => document.getElementById(`dot-${n}`)!);
 
     let lastSearchedUrl = '';
 
     function show(el: HTMLElement) { el.classList.remove('hidden'); }
     function hide(el: HTMLElement) { el.classList.add('hidden'); }
 
-    const LOADING_STEPS = [
-      { text: '🔍 Scraping and parsing target website data...', dot: 0 },
-      { text: '🌐 Initiating real-time search index queries...', dot: 1 },
-      { text: '🧠 Contextualizing competitor semantics via LLM...', dot: 2 },
-      { text: '📊 Compiling feature matrix and gap analysis...', dot: 3 },
-    ];
+    const STATUS_MAP: Record<string, { text: string; dot: number }> = {
+      scraping:   { text: '🔍 Scraping and parsing target website data...', dot: 0 },
+      searching:  { text: '🌐 Initiating real-time search index queries...', dot: 1 },
+      analyzing:  { text: '🧠 Contextualizing competitor semantics via LLM...', dot: 2 },
+      complete:   { text: '📊 Compiling feature matrix and gap analysis...', dot: 3 },
+    };
 
-    function startLoadingSequence(): () => void {
-      const stepText = document.getElementById('loading-step-text')!;
-      const dots = [1, 2, 3, 4].map(n => document.getElementById(`dot-${n}`)!);
-      let step = 0;
-
-      function updateStep(i: number) {
-        stepText.textContent = LOADING_STEPS[i].text;
-        dots.forEach((d, idx) => d.style.opacity = idx <= i ? '1' : '0.3');
-      }
-
-      updateStep(0);
-      const interval = setInterval(() => {
-        step = Math.min(step + 1, LOADING_STEPS.length - 1);
-        updateStep(step);
-        if (step === LOADING_STEPS.length - 1) clearInterval(interval);
-      }, 1500);
-
-      return () => clearInterval(interval);
+    function updateStep(status: string, message?: string) {
+      const step = STATUS_MAP[status];
+      if (!step) return;
+      stepText.textContent = message ?? step.text;
+      dots.forEach((d, i) => { d.style.opacity = i <= step.dot ? '1' : '0.3'; });
     }
 
     const CHECK_SVG = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-label="Yes" class="inline-block"><circle cx="8" cy="8" r="7" fill="#3b9eff" fill-opacity="0.15"/><path d="M5 8l2 2 4-4" stroke="#3b9eff" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
     const CROSS_SVG = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-label="No" class="inline-block"><circle cx="8" cy="8" r="7" fill="currentColor" fill-opacity="0.07"/><path d="M6 6l4 4M10 6l-4 4" stroke="currentColor" stroke-opacity="0.3" stroke-width="1.4" stroke-linecap="round"/></svg>';
+
+    function renderResults(analysis: any) {
+      summaryEl.innerHTML = `
+        <div><p class="text-mute font-mono text-[11px] uppercase tracking-wider mb-1">Audience</p><p class="text-ink">${analysis.target_summary.audience}</p></div>
+        <div><p class="text-mute font-mono text-[11px] uppercase tracking-wider mb-1">Monetization</p><p class="text-ink">${analysis.target_summary.monetization}</p></div>
+      `;
+
+      competitorsList.innerHTML = analysis.competitors.map((c: any) => `
+        <li class="flex items-start justify-between gap-4 bg-canvas rounded-[8px] border border-hairline p-4">
+          <div>
+            <a href="${c.url}" target="_blank" rel="noopener noreferrer" class="font-semibold text-link hover:underline text-[15px]">${c.name}</a>
+            <p class="text-body text-[13px] mt-1">${c.description}</p>
+          </div>
+          <span class="shrink-0 font-mono text-[12px] bg-primary/10 text-primary rounded-full px-2 py-0.5">${c.match_score}% match</span>
+        </li>
+      `).join('');
+
+      const compNames: string[] = analysis.competitors.map((c: any) => c.name);
+      matrixHead.innerHTML = `
+        <th class="text-left px-4 py-3 text-mute font-mono text-[11px] uppercase tracking-wider">Feature</th>
+        <th class="px-4 py-3 text-center text-[12px] font-semibold text-link">You</th>
+        ${compNames.map((n: string) => `<th class="px-4 py-3 text-center text-[12px] font-semibold text-ink">${n}</th>`).join('')}
+      `;
+
+      matrixBody.innerHTML = analysis.matrix.map((row: any, i: number) => {
+        const cells = [row.target_has, ...(row.competitor_values ?? []).map((v: boolean) => v)]
+          .map((has: boolean) => `<td class="px-4 py-3 text-center">${has ? CHECK_SVG : CROSS_SVG}</td>`)
+          .join('');
+        return `
+          <tr class="${i % 2 === 0 ? 'bg-canvas' : 'bg-canvas-soft/60'} border-b border-hairline last:border-0">
+            <td class="px-4 py-3 text-body text-[13px] font-medium">${row.feature_name}${row.is_gap ? ' <span class="text-[10px] font-mono bg-yellow-100 text-yellow-700 rounded px-1 ml-1">gap</span>' : ''}</td>
+            ${cells}
+          </tr>`;
+      }).join('');
+    }
+
+    function showError(message: string, isUnavailable = false) {
+      hide(loading);
+      if (isUnavailable) {
+        errorEl.className = 'rounded-[8px] border border-amber-200 bg-amber-50 p-5 text-[14px] text-amber-800';
+        errorEl.innerHTML = `
+          <p class="font-semibold mb-1">⏳ We're experiencing temporary high demand</p>
+          <p class="text-amber-700">Our AI service is currently overloaded. This is usually short-lived — please wait a moment and try again.</p>
+        `;
+      } else {
+        errorEl.className = 'rounded-[8px] border border-red-200 bg-red-50 p-5 text-[14px] text-red-700';
+        errorEl.textContent = message || 'Something went wrong. Please try again.';
+      }
+      show(errorEl);
+    }
 
     async function handleSubmit(e: SubmitEvent) {
       e.preventDefault();
@@ -636,90 +675,75 @@ const pricingMeta = [
       if (!url) return;
 
       lastSearchedUrl = url;
-
       show(section);
       show(loading);
       hide(errorEl);
       hide(output);
       section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      updateStep('scraping');
 
-      const stopSequence = startLoadingSequence();
-
+      let res: Response;
       try {
-        const res = await fetch('/api/analyze', {
+        res = await fetch('/api/analyze', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ url }),
         });
-        const data = await res.json();
+      } catch {
+        showError('Network error — could not reach the server.');
+        return;
+      }
 
-        stopSequence();
+      if (!res.ok || !res.body) {
+        showError(`Server error: ${res.status}`);
+        return;
+      }
 
-        if (!res.ok || !data.success) {
-          const err = new Error(data.error ?? 'Analysis failed') as any;
-          err.serviceUnavailable = data.serviceUnavailable ?? res.status === 503;
-          throw err;
+      const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
+      let buffer = '';
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += value;
+          const lines = buffer.split('\n');
+          buffer = lines.pop() ?? '';   // keep incomplete last line
+
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue;
+            let event: any;
+            try { event = JSON.parse(line.slice(6)); } catch { continue; }
+
+            const { status, message, payload } = event;
+
+            if (status === 'error') {
+              showError(message);
+              reader.cancel();
+              return;
+            }
+
+            if (status === 'complete') {
+              updateStep('complete');
+              renderResults(payload.analysis);
+              hide(loading);
+              show(output);
+              reader.cancel();
+              return;
+            }
+
+            if (status === 'routing') {
+              stepText.textContent = message;
+              return;
+            }
+
+            // scraping | searching | analyzing — update indicator
+            updateStep(status, message);
+          }
         }
-
-        const { analysis } = data;
-
-        // Summary
-        summaryEl.innerHTML = `
-          <div><p class="text-mute font-mono text-[11px] uppercase tracking-wider mb-1">Audience</p><p class="text-ink">${analysis.target_summary.audience}</p></div>
-          <div><p class="text-mute font-mono text-[11px] uppercase tracking-wider mb-1">Monetization</p><p class="text-ink">${analysis.target_summary.monetization}</p></div>
-        `;
-
-        // Competitors
-        competitorsList.innerHTML = analysis.competitors.map((c: any) => `
-          <li class="flex items-start justify-between gap-4 bg-canvas rounded-[8px] border border-hairline p-4">
-            <div>
-              <a href="${c.url}" target="_blank" rel="noopener noreferrer" class="font-semibold text-link hover:underline text-[15px]">${c.name}</a>
-              <p class="text-body text-[13px] mt-1">${c.description}</p>
-            </div>
-            <span class="shrink-0 font-mono text-[12px] bg-primary/10 text-primary rounded-full px-2 py-0.5">${c.match_score}% match</span>
-          </li>
-        `).join('');
-
-        // Matrix header
-        const compNames: string[] = analysis.competitors.map((c: any) => c.name);
-        matrixHead.innerHTML = `
-          <th class="text-left px-4 py-3 text-mute font-mono text-[11px] uppercase tracking-wider">Feature</th>
-          <th class="px-4 py-3 text-center text-[12px] font-semibold text-link">You</th>
-          ${compNames.map((n: string) => `<th class="px-4 py-3 text-center text-[12px] font-semibold text-ink">${n}</th>`).join('')}
-        `;
-
-        // Matrix rows — support up to 5 competitors
-        matrixBody.innerHTML = analysis.matrix.map((row: any, i: number) => {
-          const cells = [row.target_has, row.comp_1_has, row.comp_2_has, row.comp_3_has, row.comp_4_has, row.comp_5_has]
-            .slice(0, compNames.length + 1)
-            .map(has => `<td class="px-4 py-3 text-center">${has ? CHECK_SVG : CROSS_SVG}</td>`)
-            .join('');
-          return `
-            <tr class="${i % 2 === 0 ? 'bg-canvas' : 'bg-canvas-soft/60'} border-b border-hairline last:border-0">
-              <td class="px-4 py-3 text-body text-[13px] font-medium">${row.feature_name}${row.is_gap ? ' <span class="text-[10px] font-mono bg-yellow-100 text-yellow-700 rounded px-1 ml-1">gap</span>' : ''}</td>
-              ${cells}
-            </tr>`;
-        }).join('');
-
-        hide(loading);
-        show(output);
-      } catch (err: any) {
-        stopSequence();
-        hide(loading);
-
-        const isUnavailable = err.serviceUnavailable;
-        if (isUnavailable) {
-          errorEl.className = 'rounded-[8px] border border-amber-200 bg-amber-50 p-5 text-[14px] text-amber-800';
-          errorEl.innerHTML = `
-            <p class="font-semibold mb-1">⏳ We're experiencing temporary high demand</p>
-            <p class="text-amber-700">Our AI service is currently overloaded. This is usually short-lived — please wait a moment and try again.</p>
-          `;
-        } else {
-          errorEl.className = 'rounded-[8px] border border-red-200 bg-red-50 p-5 text-[14px] text-red-700';
-          errorEl.textContent = err.message ?? 'Something went wrong. Please try again.';
-        }
-
-        show(errorEl);
+      } catch {
+        showError('Stream interrupted. Please try again.');
       }
     }
 

@@ -1,9 +1,7 @@
 import type { APIRoute } from "astro";
 import { scrapeWebsite } from "../../lib/scraper";
-import { generateSearchQueries } from "../../lib/queries";
 import { searchCompetitors } from "../../lib/search";
-import { analyzeCompetitors } from "../../lib/analyze";
-import type { SearchResult } from "../../lib/search";
+import { extractBusinessContext, analyzeCompetitors } from "../../lib/analyze";
 
 export const POST: APIRoute = async ({ request }) => {
   let url: string;
@@ -25,61 +23,48 @@ export const POST: APIRoute = async ({ request }) => {
     );
   }
 
-  try {
-    // Step 1: Scrape target website
-    const targetContent = await scrapeWebsite(url);
+  const { readable, writable } = new TransformStream();
+  const writer = writable.getWriter();
+  const encoder = new TextEncoder();
 
-    // Step 2: Generate search queries directly from content
-    const queries = await generateSearchQueries(targetContent);
-
-    // Step 3: Search for competitors
-    const searchResults = await searchCompetitors(queries);
-
-    // Step 4: Scrape top 10 candidate URLs in parallel
-    const candidates = searchResults.slice(0, 10);
-    const scrapeResults = await Promise.allSettled(
-      candidates.map(result => scrapeWebsite(result.url).then(content => ({ ...result, scrapedContent: content })))
-    );
-    const scrapedCompetitors = scrapeResults
-      .filter(r => r.status === "fulfilled")
-      .map(r => (r as PromiseFulfilledResult<SearchResult & { scrapedContent: string }>).value);
-
-    // Step 5: Analyze
-    const analysis = await analyzeCompetitors(
-      targetContent,
-      scrapedCompetitors.length > 0 ? scrapedCompetitors : searchResults
+  const send = (status: string, message: string, payload?: unknown) =>
+    writer.write(
+      encoder.encode(
+        `data: ${JSON.stringify({ status, message, ...(payload ? { payload } : {}) })}\n\n`
+      )
     );
 
-    return new Response(
-      JSON.stringify({ success: true, queries, searchResults, analysis }),
-      { status: 200, headers: { "Content-Type": "application/json" } }
-    );
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Internal server error";
-    console.error("[/api/analyze]", message);
+  (async () => {
+    try {
+      // Step 1: Scrape
+      await send("scraping", "Fetching target website...");
+      const targetContent = await scrapeWebsite(url);
 
-    const isServiceUnavailable =
-      message.includes("503") ||
-      message.toLowerCase().includes("unavailable") ||
-      message.toLowerCase().includes("high demand");
+      // Step 2: Search
+      await send("searching", "Identifying business niche and searching for competitors...");
+      const bizContext = extractBusinessContext(targetContent);
+      const searchResults = await searchCompetitors([bizContext.query]);
 
-    const isQuotaExhausted =
-      message.includes("429") ||
-      message.toLowerCase().includes("quota") ||
-      message.toLowerCase().includes("resource_exhausted");
+      // Step 3: Analyze
+      await send("analyzing", "Analyzing competitors with Venice AI...");
+      const analysis = await analyzeCompetitors(targetContent, searchResults);
 
-    return new Response(
-      JSON.stringify({
-        error: isQuotaExhausted
-          ? "All AI providers are currently rate-limited. Please try again in a minute."
-          : message,
-        serviceUnavailable: isServiceUnavailable,
-        rateLimited: isQuotaExhausted,
-      }),
-      {
-        status: isServiceUnavailable ? 503 : isQuotaExhausted ? 429 : 500,
-        headers: { "Content-Type": "application/json" },
-      }
-    );
-  }
+      // Step 4: Complete
+      await send("complete", "Analysis complete.", { searchResults, analysis });
+    } catch (err) {
+      console.error("ANALYSIS_PIPELINE_CRASH:", err);
+      const message = err instanceof Error ? err.message : "Internal server error";
+      await send("error", message);
+    } finally {
+      await writer.close();
+    }
+  })();
+
+  return new Response(readable, {
+    headers: {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+    },
+  });
 };
