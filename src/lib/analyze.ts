@@ -12,7 +12,9 @@ export function extractBusinessContext(targetMarkdown: string): { name: string; 
     ?? lines.find(l => l.length > 40 && !l.startsWith('#') && !l.startsWith('!'))
     ?? '';
 
-  const query = `${titleLine} ${descLine}`.slice(0, 120).trim() + ' competitors';
+  const raw = `${titleLine} ${descLine}`.slice(0, 120).trim();
+  // Strip markdown syntax, URLs, and special characters
+  const query = raw.replace(/https?:\/\/\S+/g, '').replace(/[#*\[\]()_`>|]/g, '').replace(/\s+/g, ' ').trim() + ' competitors';
   return { name: titleLine, niche: descLine, query };
 }
 

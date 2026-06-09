@@ -53,10 +53,13 @@ export async function searchCompetitors(queries: string[]): Promise<SearchResult
   const raw: SearchResult[] = [];
 
   for (const query of queries) {
+    const q = (query ?? '').trim();
+    if (!q) continue;
+    console.log("SERPER_QUERY:", q);
     const res = await fetch("https://google.serper.dev/search", {
       method: "POST",
       headers: { "X-API-KEY": apiKey, "Content-Type": "application/json" },
-      body: JSON.stringify({ q: query, num: 15 }),
+      body: JSON.stringify({ q, num: 15 }),
     });
 
     if (!res.ok) throw new Error(`Serper API error: ${res.status} ${res.statusText}`);
