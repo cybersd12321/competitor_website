@@ -47,7 +47,7 @@ function isBlocked(url: string): boolean {
 }
 
 export async function searchCompetitors(queries: string[]): Promise<SearchResult[]> {
-  const apiKey = import.meta.env.SERPER_API_KEY;
+  const apiKey = import.meta.env.SERPER_API_KEY ?? process.env.SERPER_API_KEY;
   if (!apiKey) throw new Error("SERPER_API_KEY is not set");
 
   const raw: SearchResult[] = [];

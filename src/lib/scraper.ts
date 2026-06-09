@@ -1,42 +1,39 @@
+function sanitizeMarkdown(content: string): string {
+  return content
+    // Strip empty code blocks
+    .replace(/```[\s\S]*?```/gm, (match) => {
+      const inner = match.replace(/```\w*\n?/, "").replace(/```$/, "").trim();
+      return inner ? match : "";
+    })
+    // Collapse repeated nav/footer link lists (3+ consecutive markdown links on their own lines)
+    .replace(/(^\s*\[.*?\]\(.*?\)\s*$\n?){3,}/gm, "[...navigation links removed...]\n")
+    // Remove lines that are just pipes (table noise) repeated 4+ times
+    .replace(/(^\s*\|.*\|\s*$\n?){4,}/gm, "[...table removed...]\n")
+    // Collapse 3+ consecutive blank lines
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 export async function scrapeWebsite(url: string): Promise<string> {
-  const apiKey = import.meta.env.JINA_API_KEY;
+  const apiKey = import.meta.env.JINA_API_KEY ?? process.env.JINA_API_KEY;
   if (!apiKey) throw new Error("JINA_API_KEY is not set");
 
-  const scrape = async (targetUrl: string): Promise<string | null> => {
-    const res = await fetch("https://r.jina.ai/", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-        Accept: "application/json",
-        "X-Return-Format": "markdown",
-      },
-      body: JSON.stringify({ url: targetUrl }),
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
-    return data?.data?.content ?? null;
-  };
+  const res = await fetch("https://r.jina.ai/", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      "X-Return-Format": "markdown",
+    },
+    body: JSON.stringify({ url }),
+  });
 
-  // Always scrape the homepage
-  const homepage = await scrape(url);
-  if (!homepage) throw new Error("No content returned from Jina Reader API");
+  if (!res.ok) throw new Error(`Jina API error: ${res.status} ${res.statusText}`);
 
-  // Derive base URL and scrape key subpages in parallel for deeper niche understanding
-  let base = url.replace(/\/$/, "");
-  try { base = `${new URL(url).protocol}//${new URL(url).hostname}`; } catch {}
+  const data = await res.json();
+  const content: string = data?.data?.content ?? "";
+  if (!content) throw new Error("No content returned from Jina Reader API");
 
-  const SUBPAGES = ["/features", "/pricing", "/about", "/product", "/solutions"];
-  const subpageResults = await Promise.allSettled(
-    SUBPAGES.map(path => scrape(`${base}${path}`))
-  );
-
-  const subpageContent = subpageResults
-    .filter(r => r.status === "fulfilled" && r.value)
-    .map(r => (r as PromiseFulfilledResult<string>).value)
-    .join("\n\n---\n\n");
-
-  return subpageContent
-    ? `${homepage}\n\n---\n\n${subpageContent}`
-    : homepage;
+  return sanitizeMarkdown(content);
 }

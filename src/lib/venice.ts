@@ -8,7 +8,7 @@ export async function callVenice(
   response_format?: ResponseFormat,
   overrides?: Record<string, unknown>
 ): Promise<string> {
-  const apiKey = import.meta.env.VENICE_API_KEY;
+  const apiKey = import.meta.env.VENICE_API_KEY ?? process.env.VENICE_API_KEY;
   if (!apiKey) throw new Error("VENICE_API_KEY is not set");
 
   const messages = [{ role: "user", content: prompt }];
