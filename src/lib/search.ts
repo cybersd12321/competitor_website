@@ -55,6 +55,9 @@ export async function searchCompetitors(queries: string[]): Promise<SearchResult
   for (const query of queries) {
     const q = (query ?? '').trim();
     if (!q || q === 'competitors') continue;
+    // Reject queries that are too short or contain only stop words
+    const words = q.replace(/ competitors$/i, '').trim().split(/\s+/);
+    if (words.length < 2) continue;
     console.log("SERPER_QUERY:", q);
     const res = await fetch("https://google.serper.dev/search", {
       method: "POST",
@@ -62,7 +65,10 @@ export async function searchCompetitors(queries: string[]): Promise<SearchResult
       body: JSON.stringify({ q, num: 15 }),
     });
 
-    if (!res.ok) throw new Error(`Serper API error: ${res.status} ${res.statusText}`);
+    if (!res.ok) {
+      const body = await res.text().catch(() => '');
+      throw new Error(`Serper API error: ${res.status} ${res.statusText} — query: "${q}" — response: ${body}`);
+    }
 
     const data = await res.json();
     const organic: Array<{ title?: string; link?: string; snippet?: string }> =

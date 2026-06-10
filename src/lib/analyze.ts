@@ -19,20 +19,24 @@ export function extractBusinessContext(targetMarkdown: string): { name: string; 
     })
     ?? '';
 
-  // Strip markdown syntax, URLs, image tags, and special characters from both
+  // Strip markdown syntax, URLs, image tags, and all non-search-safe characters
   const clean = (s: string) => s
-    .replace(/!\[.*?\]\(.*?\)/g, '')       // remove markdown images
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // unwrap markdown links → keep text
-    .replace(/https?:\/\/\S+/g, '')
-    .replace(/[#*\[\]()_`>|!:&"']/g, '')
+    .replace(/!\[.*?\]\(.*?\)/g, '')          // remove markdown images
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')  // unwrap markdown links → keep text
+    .replace(/https?:\/\/\S+/g, '')           // remove URLs
+    .replace(/[^\x20-\x7E]/g, ' ')            // strip non-ASCII (ellipsis, em-dash, etc.)
+    .replace(/[^a-zA-Z0-9 \-]/g, ' ')         // keep only alphanumeric, spaces, hyphens
     .replace(/\s+/g, ' ')
     .trim();
 
   const cleanTitle = clean(titleLine ?? '');
   const cleanDesc = clean(descLine);
 
-  // Keep query short enough for Serper (max ~80 chars before appending " competitors")
-  const combined = `${cleanTitle} ${cleanDesc}`.trim().slice(0, 80);
+  // Use only the title if desc adds noise (e.g. personal names/locations)
+  // Keep query short enough for Serper (max 60 chars before appending " competitors")
+  const combined = cleanDesc
+    ? `${cleanTitle} ${cleanDesc}`.trim().slice(0, 60)
+    : cleanTitle.slice(0, 60);
   const query = combined + ' competitors';
 
   return { name: titleLine, niche: descLine, query };
