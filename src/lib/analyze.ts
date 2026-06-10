@@ -9,12 +9,32 @@ export function extractBusinessContext(targetMarkdown: string): { name: string; 
     ?? lines[0];
 
   const descLine = lines.find(l => /^description:/i.test(l))?.replace(/^description:\s*/i, '')
-    ?? lines.find(l => l.length > 40 && !l.startsWith('#') && !l.startsWith('!'))
+    ?? lines.find(l => {
+      // Skip lines that are images, image captions, short labels, or navigation noise
+      if (l.startsWith('#') || l.startsWith('!') || l.startsWith('[')) return false;
+      // Skip lines that look like image alt/caption text (e.g. "Image 2", "logo", short isolated words)
+      if (/^image\s*\d*$/i.test(l) || /^(logo|icon|banner|screenshot|photo|illustration)(\s+\d+)?$/i.test(l)) return false;
+      // Must be a real sentence (contains a space and is reasonably long)
+      return l.length > 40 && l.includes(' ');
+    })
     ?? '';
 
-  const raw = `${titleLine} ${descLine}`.slice(0, 120).trim();
-  // Strip markdown syntax, URLs, and special characters
-  const query = raw.replace(/https?:\/\/\S+/g, '').replace(/[#*\[\]()_`>|!:&"']/g, '').replace(/\s+/g, ' ').trim() + ' competitors';
+  // Strip markdown syntax, URLs, image tags, and special characters from both
+  const clean = (s: string) => s
+    .replace(/!\[.*?\]\(.*?\)/g, '')       // remove markdown images
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // unwrap markdown links → keep text
+    .replace(/https?:\/\/\S+/g, '')
+    .replace(/[#*\[\]()_`>|!:&"']/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  const cleanTitle = clean(titleLine ?? '');
+  const cleanDesc = clean(descLine);
+
+  // Keep query short enough for Serper (max ~80 chars before appending " competitors")
+  const combined = `${cleanTitle} ${cleanDesc}`.trim().slice(0, 80);
+  const query = combined + ' competitors';
+
   return { name: titleLine, niche: descLine, query };
 }
 
