@@ -121,7 +121,7 @@ const pricingMeta = [
           <span id="dot-3" class="w-2 h-2 rounded-full bg-primary opacity-30 transition-opacity duration-300"></span>
           <span id="dot-4" class="w-2 h-2 rounded-full bg-primary opacity-30 transition-opacity duration-300"></span>
         </div>
-        <p class="text-mute text-[12px] mt-4 font-mono">This takes about 15–30 seconds</p>
+        <p class="text-mute text-[12px] mt-4 font-mono">This takes about 30–60 seconds</p>
       </div>
       <!-- Error state -->
       <div id="results-error" class="hidden rounded-[8px] border p-5 text-[14px]"></div>
@@ -179,7 +179,7 @@ const pricingMeta = [
     <div class="max-w-[1400px] mx-auto px-4 sm:px-6">
       <p class="text-center font-mono text-[12px] text-mute uppercase tracking-wider mb-5">{T.logos.label}</p>
       <ul class="flex items-center justify-center gap-6 sm:gap-10 flex-wrap list-none m-0 p-0" role="list" aria-label="Customer companies">
-        {['Storylane', 'Opnform', 'Launchpad', 'Peerlist', 'Tally', 'Rowy'].map(name => (
+        {['Storylane', 'Opnform', 'Launchpad', 'Quickwire', 'Techverse Solution', 'Peerlist'].map(name => (
           <li><span class="text-[14px] text-hairline-strong font-semibold tracking-[-0.28px]" translate="no">{name}</span></li>
         ))}
       </ul>
@@ -641,16 +641,41 @@ const pricingMeta = [
         ${compNames.map((n: string) => `<th class="px-4 py-3 text-center text-[12px] font-semibold text-ink">${n}</th>`).join('')}
       `;
 
-      matrixBody.innerHTML = analysis.matrix.map((row: any, i: number) => {
-        const cells = [row.target_has, ...(row.competitor_values ?? []).map((v: boolean) => v)]
-          .map((has: boolean) => `<td class="px-4 py-3 text-center">${has ? CHECK_SVG : CROSS_SVG}</td>`)
-          .join('');
-        return `
-          <tr class="${i % 2 === 0 ? 'bg-canvas' : 'bg-canvas-soft/60'} border-b border-hairline last:border-0">
-            <td class="px-4 py-3 text-body text-[13px] font-medium">${row.feature_name}${row.is_gap ? ' <span class="text-[10px] font-mono bg-yellow-100 text-yellow-700 rounded px-1 ml-1">gap</span>' : ''}</td>
-            ${cells}
+      matrixBody.innerHTML = (() => {
+        // Group rows by category
+        const grouped: Record<string, any[]> = {};
+        analysis.matrix.forEach((row: any) => {
+          const cat = row.category ?? 'General';
+          if (!grouped[cat]) grouped[cat] = [];
+          grouped[cat].push(row);
+        });
+
+        const importanceBadge = (imp: string) => {
+          if (imp === 'high') return '<span class="text-[9px] font-mono bg-red-100 text-red-600 rounded px-1 ml-1 uppercase">HIGH</span>';
+          if (imp === 'medium') return '<span class="text-[9px] font-mono bg-blue-100 text-blue-600 rounded px-1 ml-1 uppercase">MED</span>';
+          return '<span class="text-[9px] font-mono bg-gray-100 text-gray-400 rounded px-1 ml-1 uppercase">LOW</span>';
+        };
+
+        return Object.entries(grouped).map(([cat, rows]) => {
+          const catRow = `<tr class="bg-canvas-soft/80 border-b border-hairline">
+            <td colspan="${compNames.length + 2}" class="px-4 py-2 text-mute font-mono text-[10px] uppercase tracking-widest">${cat}</td>
           </tr>`;
-      }).join('');
+          const dataRows = rows.map((row: any, i: number) => {
+            const cells = [row.target_has, ...(row.competitor_values ?? []).map((v: boolean) => v)]
+              .map((has: boolean) => `<td class="px-4 py-3 text-center">${has ? CHECK_SVG : CROSS_SVG}</td>`)
+              .join('');
+            return `<tr class="${i % 2 === 0 ? 'bg-canvas' : 'bg-canvas-soft/40'} border-b border-hairline last:border-0">
+              <td class="px-4 py-3 text-body text-[13px] font-medium">
+                ${row.feature_name}
+                ${row.is_gap ? '<span class="text-[9px] font-mono bg-yellow-100 text-yellow-700 rounded px-1 ml-1">GAP</span>' : ''}
+                ${importanceBadge(row.importance ?? 'medium')}
+              </td>
+              ${cells}
+            </tr>`;
+          }).join('');
+          return catRow + dataRows;
+        }).join('');
+      })();
     }
 
     function showError(message: string, isUnavailable = false) {
@@ -670,7 +695,7 @@ const pricingMeta = [
 
     async function handleSubmit(e: SubmitEvent) {
       e.preventDefault();
-      const form = e.currentTarget as HTMLFormElement;
+      const form = e.target as HTMLFormElement;
       const url = (form.querySelector('input[type="url"]') as HTMLInputElement).value.trim();
       if (!url) return;
 

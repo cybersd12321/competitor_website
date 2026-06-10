@@ -19,14 +19,30 @@ export function extractBusinessContext(targetMarkdown: string): { name: string; 
 }
 
 export async function analyzeCompetitors(targetMarkdown: string, searchResults: any[]) {
-  const systemPrompt = `You are a competitive intelligence analyst. Perform a precise capability comparison between the TARGET business and its competitors.
+  const systemPrompt = `You are a senior competitive intelligence analyst. Your job is to find NON-OBVIOUS, high-signal differentiators that reveal real strategic gaps — not generic features every website has.
 
-RULES:
-- Only extract true operational/commercial differentiators: fulfillment methods, warranty terms, pricing tiers, payment options (COD, installments), geographic coverage, product specializations, certifications, B2B/wholesale programs, delivery SLAs.
-- FORBIDDEN features: search bar, navigation, login, cart, contact form, responsive design, social media links.
-- "target_has" must reflect what is ACTUALLY present in the Target Markdown — read it carefully before setting this value.
-- "is_gap" = true ONLY when target_has is FALSE (the target is missing something competitors offer). If target_has is true, is_gap must be false.
-- Return EXACTLY 5 competitors. If search results have fewer, infer well-known alternatives in the same niche.
+STRICT RULES:
+- FORBIDDEN (never include): search bar, navigation menu, login/signup, shopping cart, contact form, responsive design, social media links, SSL certificate, newsletter subscription, cookie banner, FAQ page, 404 page, sitemap.
+- AVOID GENERIC: "Product catalog", "Customer reviews", "About Us page", "Blog", "Mobile app" — these are table stakes, not differentiators.
+- ONLY include features that are commercially or strategically significant: things that affect conversion, revenue model, customer retention, or market positioning.
+- Each feature must belong to one of these categories: "Pricing & Commerce", "Trust & Credibility", "Fulfillment & Operations", "Product Depth", "Support & Success", "Growth & Acquisition", "Tech & Integrations".
+- importance: "high" = directly impacts revenue or retention | "medium" = affects conversion | "low" = nice-to-have.
+- "target_has" must reflect what is ACTUALLY present in the Target Markdown — read it carefully.
+- "is_gap" = true ONLY when target_has is FALSE. Never when target_has is true.
+- Return EXACTLY 5 competitors. If fewer in results, infer well-known alternatives in the same niche.
+- Return EXACTLY 12–15 matrix rows spanning at least 4 different categories.
+
+GOOD feature examples (niche-specific, commercially meaningful):
+- "Transparent Pricing Page" (Pricing & Commerce, high)
+- "Free Trial Without Credit Card" (Growth & Acquisition, high)
+- "Live Chat Support" (Support & Success, medium)
+- "Annual Billing Discount" (Pricing & Commerce, medium)
+- "SOC2 / ISO Certification" (Trust & Credibility, high)
+- "White-label / Reseller Program" (Growth & Acquisition, high)
+- "SLA / Uptime Guarantee" (Fulfillment & Operations, high)
+- "Zapier / API Integration" (Tech & Integrations, medium)
+- "Custom Onboarding / CSM" (Support & Success, high)
+- "Case Studies with ROI Data" (Trust & Credibility, medium)
 
 OUTPUT: one raw JSON object, no markdown fences, no extra text.
 
@@ -36,7 +52,7 @@ OUTPUT: one raw JSON object, no markdown fences, no extra text.
     { "name": "Brand", "url": "https://...", "match_score": 85, "description": "positioning summary" }
   ],
   "matrix": [
-    { "feature_name": "Differentiator", "target_has": true, "competitor_values": [true, false], "is_gap": false }
+    { "feature_name": "Differentiator", "category": "Pricing & Commerce", "importance": "high", "target_has": true, "competitor_values": [true, false], "is_gap": false }
   ]
 }`;
 
@@ -59,10 +75,15 @@ ${JSON.stringify(searchResults)}`;
     if (!parsedData.matrix) parsedData.matrix = [];
 
     // Enforce is_gap consistency and strip UI noise
-    const noisyKeys = ['search', 'navigation', 'cart', 'menu', 'login', 'contact'];
+    const noisyKeys = ['search bar', 'navigation', 'cart', 'menu', 'login', 'contact form', 'newsletter', 'cookie', 'sitemap', 'social media', 'faq page', 'about us', 'blog'];
     parsedData.matrix = parsedData.matrix
       .filter((row: any) => !noisyKeys.some(k => (row.feature_name ?? '').toLowerCase().includes(k)))
-      .map((row: any) => ({ ...row, is_gap: row.target_has === false }));
+      .map((row: any) => ({
+        ...row,
+        category: row.category ?? 'General',
+        importance: row.importance ?? 'medium',
+        is_gap: row.target_has === false,
+      }));
 
     return parsedData;
   } catch (err) {

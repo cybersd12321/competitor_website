@@ -58,9 +58,9 @@ export const t: Record<Lang, {
     scrape: { eyebrow: 'Step 1 — Autoscrape', h2: "AI reads your site so you don't have to fill out a form.", sub: 'No keyword entry. No manual niche selection. Just your URL — our AI does the classification work automatically.', step2Title: 'Step 2 — Discovery', step2Body: 'We cross-reference review sites, app stores, directories, and search rankings to surface your complete competitive landscape in minutes.', step3Title: 'Step 3 — Feature Gap Matrix', step3Body: 'Get a visual, side-by-side matrix comparing your features against every competitor. See what you\'re missing, what\'s your moat, and where to invest next.' },
     testimonials: { h2: 'Founders who stopped guessing.' },
     quotes: [
-      { quote: 'Found 12 competitors I had no idea existed. The gap matrix alone saved us weeks of manual research.', name: 'Sarah K.', role: 'Founder, Launchpad SaaS' },
+      { quote: 'Found 12 competitors I had no idea existed. The gap matrix alone saved us weeks of manual research.', name: 'Chakshu Ar.', role: 'Founder, Techverse Solution' },
       { quote: "We've tried Semrush, Similarweb, and Crayon. This is the only tool that tells us what features we're missing.", name: 'Marcus T.', role: 'Head of Product, Storylane' },
-      { quote: 'Pasted our URL on a Monday, had a full deck for the board by Tuesday. Game changer.', name: 'Priya M.', role: 'CEO, Opnform' },
+      { quote: 'Pasted our URL and had the full competitor report right in the browser — instantly. No waiting, no email, just results.', name: 'Priya M.', role: 'CEO, Opnform' },
     ],
     pricing: { eyebrow: 'Pricing', h2: 'Start free. No credit card.', sub: 'Get real competitor intelligence instantly. Upgrade when you need more power.' },
     plans: [
