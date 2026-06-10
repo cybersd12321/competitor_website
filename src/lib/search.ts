@@ -54,7 +54,7 @@ export async function searchCompetitors(queries: string[]): Promise<SearchResult
 
   for (const query of queries) {
     const q = (query ?? '').trim();
-    if (!q) continue;
+    if (!q || q === 'competitors') continue;
     console.log("SERPER_QUERY:", q);
     const res = await fetch("https://google.serper.dev/search", {
       method: "POST",

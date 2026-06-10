@@ -14,7 +14,7 @@ export function extractBusinessContext(targetMarkdown: string): { name: string; 
 
   const raw = `${titleLine} ${descLine}`.slice(0, 120).trim();
   // Strip markdown syntax, URLs, and special characters
-  const query = raw.replace(/https?:\/\/\S+/g, '').replace(/[#*\[\]()_`>|]/g, '').replace(/\s+/g, ' ').trim() + ' competitors';
+  const query = raw.replace(/https?:\/\/\S+/g, '').replace(/[#*\[\]()_`>|!:&"']/g, '').replace(/\s+/g, ' ').trim() + ' competitors';
   return { name: titleLine, niche: descLine, query };
 }
 

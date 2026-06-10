@@ -56,7 +56,7 @@ export const POST: APIRoute = async ({ request }) => {
       const message = err instanceof Error ? err.message : "Internal server error";
       await send("error", message);
     } finally {
-      await writer.close();
+      try { await writer.close(); } catch {}
     }
   })();
 

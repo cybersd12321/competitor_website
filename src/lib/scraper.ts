@@ -18,16 +18,28 @@ export async function scrapeWebsite(url: string): Promise<string> {
   const apiKey = import.meta.env.JINA_API_KEY ?? process.env.JINA_API_KEY;
   if (!apiKey) throw new Error("JINA_API_KEY is not set");
 
-  const res = await fetch("https://r.jina.ai/", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-      Accept: "application/json",
-      "X-Return-Format": "markdown",
-    },
-    body: JSON.stringify({ url }),
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30_000);
+
+  let res: Response;
+  try {
+    res = await fetch("https://r.jina.ai/", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        "X-Return-Format": "markdown",
+      },
+      body: JSON.stringify({ url }),
+      signal: controller.signal,
+    });
+  } catch (err) {
+    if ((err as any)?.name === "AbortError") throw new Error("Jina API timeout: request exceeded 30s");
+    throw err;
+  } finally {
+    clearTimeout(timeout);
+  }
 
   if (!res.ok) throw new Error(`Jina API error: ${res.status} ${res.statusText}`);
 
