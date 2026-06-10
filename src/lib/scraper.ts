@@ -1,3 +1,13 @@
+const JUNK_PATTERNS = [
+  /please wait/i,
+  /processing your request/i,
+  /just a moment/i,
+  /enable javascript/i,
+  /checking your browser/i,
+  /ddos protection/i,
+  /access denied/i,
+];
+
 function sanitizeMarkdown(content: string): string {
   return content
     // Strip empty code blocks
@@ -5,6 +15,8 @@ function sanitizeMarkdown(content: string): string {
       const inner = match.replace(/```\w*\n?/, "").replace(/```$/, "").trim();
       return inner ? match : "";
     })
+    // Remove Jina image alt text noise e.g. "Image 1 Some Alt Text"
+    .replace(/\bImage\s+\d+\s+[^\n]*/gi, "")
     // Collapse repeated nav/footer link lists (3+ consecutive markdown links on their own lines)
     .replace(/(^\s*\[.*?\]\(.*?\)\s*$\n?){3,}/gm, "[...navigation links removed...]\n")
     // Remove lines that are just pipes (table noise) repeated 4+ times
@@ -57,6 +69,14 @@ export async function scrapeWebsite(url: string): Promise<string> {
   const data = await res.json();
   const content: string = data?.data?.content ?? "";
   if (!content) throw new Error("No content returned from Jina Reader API");
+
+  // Reject loading screens / bot challenges.
+  // We check for junk patterns AND absence of a Title line — a real page always has one.
+  const hasTitle = /^title:/im.test(content);
+  const isJunk = JUNK_PATTERNS.some(p => p.test(content));
+  if (!hasTitle && isJunk) {
+    throw new Error(`Could not scrape ${url}: site returned a loading or challenge page`);
+  }
 
   return sanitizeMarkdown(content);
 }

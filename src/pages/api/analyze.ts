@@ -2,6 +2,7 @@ import type { APIRoute } from "astro";
 import { scrapeWebsite } from "../../lib/scraper";
 import { searchCompetitors } from "../../lib/search";
 import { extractBusinessContext, analyzeCompetitors } from "../../lib/analyze";
+import { normalizeUrl, withCache } from "../../lib/cache";
 
 export const POST: APIRoute = async ({ request }) => {
   let url: string;
@@ -36,21 +37,26 @@ export const POST: APIRoute = async ({ request }) => {
 
   (async () => {
     try {
-      // Step 1: Scrape
-      await send("scraping", "Fetching target website...");
-      const targetContent = await scrapeWebsite(url);
+      const cacheKey = normalizeUrl(url);
 
-      // Step 2: Search
-      await send("searching", "Identifying business niche and searching for competitors...");
-      const bizContext = extractBusinessContext(targetContent);
-      const searchResults = await searchCompetitors([bizContext.query]);
+      const cached = await withCache(cacheKey, async () => {
+        // Step 1: Scrape
+        await send("scraping", "Fetching target website...");
+        const targetContent = await scrapeWebsite(url);
 
-      // Step 3: Analyze
-      await send("analyzing", "Analyzing competitors with Venice AI...");
-      const analysis = await analyzeCompetitors(targetContent, searchResults);
+        // Step 2: Search
+        await send("searching", "Identifying business niche and searching for competitors...");
+        const bizContext = extractBusinessContext(targetContent);
+        const searchResults = await searchCompetitors([bizContext.query]);
 
-      // Step 4: Complete
-      await send("complete", "Analysis complete.", { searchResults, analysis });
+        // Step 3: Analyze
+        await send("analyzing", "Analyzing competitors with Venice AI...");
+        const analysis = await analyzeCompetitors(targetContent, searchResults);
+
+        return { searchResults, analysis };
+      });
+
+      await send("complete", "Analysis complete.", cached);
     } catch (err) {
       console.error("ANALYSIS_PIPELINE_CRASH:", err);
       const message = err instanceof Error ? err.message : "Internal server error";
