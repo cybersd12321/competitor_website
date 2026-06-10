@@ -7,6 +7,12 @@
       "skillPath": "skills/agent-browser/SKILL.md",
       "computedHash": "228f87d57035100d9dc6efcfc05aafd4b6e3962adacaa04b8217ab2fadb15dc8"
     },
+    "createos": {
+      "source": "NodeOps-app/skills",
+      "sourceType": "github",
+      "skillPath": "skills/createos/SKILL.md",
+      "computedHash": "c665bf11a285fc7fd586feb84d578404a1ecf28b195c357e3d56720a4049f324"
+    },
     "skill-creator": {
       "source": "anthropics/skills",
       "sourceType": "github",

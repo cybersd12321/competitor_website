@@ -282,7 +282,7 @@ const navLinks = [
                 {col.links.map((link, linkIdx) => {
                   // Company col (index 2): map links by position to real pages
                   const companyHrefs = ['/about', '/contact', '/privacy-policy', '/terms'];
-                  const href = colIdx === 2 ? (companyHrefs[linkIdx] ?? '#') : '#';
+                  const href = colIdx === 1 ? (companyHrefs[linkIdx] ?? '#') : '#';
                   return (
                     <li>
                       <a href={href} class="text-[14px] text-body leading-5 tracking-[-0.28px] hover:text-ink transition-colors focus-visible:focus-ring rounded-sm">{link}</a>
