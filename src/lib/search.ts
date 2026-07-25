@@ -47,12 +47,55 @@ const WEAK_PATH_PATTERNS = [
   /\/tag\//i, /\/category\//i, /\/author\//i, /\/search\//i,
 ];
 
-function rootHost(url: string): string {
+const MULTI_PART_TLDS = new Set([
+  "co.uk", "org.uk", "ac.uk", "gov.uk",
+  "com.au", "net.au", "org.au",
+  "co.jp", "com.br", "co.in", "com.mx",
+  "co.nz", "co.za", "com.sg", "com.hk",
+]);
+
+/** Hostname without leading www. */
+export function rootHost(url: string): string {
   try {
     return new URL(url).hostname.replace(/^www\./, "").toLowerCase();
   } catch {
     return "";
   }
+}
+
+/** Approximate registrable domain (eTLD+1). */
+export function registrableDomain(hostOrUrl: string): string {
+  let host = hostOrUrl.toLowerCase().replace(/^www\./, "");
+  try {
+    if (host.includes("://") || host.includes("/")) {
+      host = new URL(host.includes("://") ? host : `https://${host}`).hostname
+        .replace(/^www\./, "")
+        .toLowerCase();
+    }
+  } catch {
+    /* keep host */
+  }
+  const parts = host.split(".").filter(Boolean);
+  if (parts.length <= 2) return parts.join(".");
+  const last2 = parts.slice(-2).join(".");
+  if (MULTI_PART_TLDS.has(last2) && parts.length >= 3) {
+    return parts.slice(-3).join(".");
+  }
+  return last2;
+}
+
+/**
+ * True when candidate is the same site as target (incl. www / subdomains / same eTLD+1).
+ */
+export function isSameSite(candidateUrl: string, targetUrl: string): boolean {
+  const a = rootHost(candidateUrl);
+  const b = rootHost(targetUrl);
+  if (!a || !b) return false;
+  if (a === b) return true;
+  if (a.endsWith(`.${b}`) || b.endsWith(`.${a}`)) return true;
+  const ra = registrableDomain(a);
+  const rb = registrableDomain(b);
+  return Boolean(ra && rb && ra === rb);
 }
 
 export function isBlocked(url: string): boolean {
@@ -68,24 +111,15 @@ export function isBlocked(url: string): boolean {
   return false;
 }
 
-function isSameSite(candidateUrl: string, targetUrl: string): boolean {
-  const a = rootHost(candidateUrl);
-  const b = rootHost(targetUrl);
-  if (!a || !b) return false;
-  return a === b || a.endsWith(`.${b}`) || b.endsWith(`.${a}`);
-}
-
 /** Prefer product root over deep marketing paths. */
 function toPreferredUrl(url: string): string {
   try {
     const u = new URL(url);
-    // If path looks like a deep article already filtered; for others collapse to origin when path is long blog-like
     const path = u.pathname.replace(/\/+$/, "");
     if (path.split("/").filter(Boolean).length >= 4) {
       return `${u.protocol}//${u.host}/`;
     }
     u.hash = "";
-    // Drop tracking params
     ["utm_source", "utm_medium", "utm_campaign", "utm_content", "ref", "fbclid"].forEach((k) =>
       u.searchParams.delete(k)
     );
@@ -96,12 +130,28 @@ function toPreferredUrl(url: string): string {
 }
 
 export interface RankOptions {
-  /** Original target site — excluded from results. */
+  /** Original target site — always excluded from results. */
   targetUrl?: string;
+  /** Extra hosts/domains to exclude (brand mirrors, etc.). */
+  excludeHosts?: string[];
   /** Tokens from niche / title used for soft relevance boost. */
   nicheTerms?: string[];
   /** Max results after ranking. */
   limit?: number;
+}
+
+function shouldExclude(url: string, opts: RankOptions): boolean {
+  if (opts.targetUrl && isSameSite(url, opts.targetUrl)) return true;
+  const host = rootHost(url);
+  const reg = registrableDomain(host);
+  for (const ex of opts.excludeHosts ?? []) {
+    const eh = ex.replace(/^www\./, "").toLowerCase();
+    if (!eh) continue;
+    if (host === eh || host.endsWith(`.${eh}`) || reg === registrableDomain(eh)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 /**
@@ -115,11 +165,11 @@ export function scoreCandidate(
   const host = rootHost(item.url);
   const text = `${item.title} ${item.snippet}`.toLowerCase();
 
-  if (opts.targetUrl && isSameSite(item.url, opts.targetUrl)) return -1000;
+  if (shouldExclude(item.url, opts)) return -1000;
 
-  // Snippet niche overlap
+  // Snippet niche overlap — keep Unicode letters (non-English niches)
   const terms = (opts.nicheTerms ?? [])
-    .map((t) => t.toLowerCase().replace(/[^a-z0-9]/g, ""))
+    .map((t) => t.toLowerCase().replace(/[^\p{L}\p{N}]/gu, ""))
     .filter((t) => t.length >= 3);
   if (terms.length) {
     const hits = terms.filter((t) => text.includes(t) || host.includes(t)).length;
@@ -194,12 +244,12 @@ export async function searchCompetitors(
     }
   }
 
-  // Filter blocked + self, score, dedupe by root domain (keep highest score)
-  const byHost = new Map<string, SearchResult>();
+  // Filter blocked + self, score, dedupe by registrable domain (keep highest score)
+  const byDomain = new Map<string, SearchResult>();
 
   for (const item of raw) {
     if (isBlocked(item.url)) continue;
-    if (opts.targetUrl && isSameSite(item.url, opts.targetUrl)) continue;
+    if (shouldExclude(item.url, opts)) continue;
 
     const host = rootHost(item.url);
     if (!host) continue;
@@ -208,14 +258,17 @@ export async function searchCompetitors(
     if (score < 20) continue;
 
     const ranked: SearchResult = { ...item, score };
-    const prev = byHost.get(host);
+    const key = registrableDomain(host) || host;
+    const prev = byDomain.get(key);
     if (!prev || (prev.score ?? 0) < score) {
-      byHost.set(host, ranked);
+      byDomain.set(key, ranked);
     }
   }
 
+  // Final hard pass — never return the analyzed site
   const limit = opts.limit ?? 12;
-  return [...byHost.values()]
+  return [...byDomain.values()]
+    .filter((r) => !shouldExclude(r.url, opts))
     .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
     .slice(0, limit);
 }

@@ -629,33 +629,94 @@ const pricingMeta = [
       return UNKNOWN_SVG;
     }
 
-    function renderResults(analysis: any) {
+    function escapeHtml(s: unknown): string {
+      return String(s ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function safeHttpUrl(raw: unknown): string {
+      try {
+        const u = new URL(String(raw ?? ''));
+        if (u.protocol !== 'http:' && u.protocol !== 'https:') return '#';
+        return u.toString();
+      } catch {
+        return '#';
+      }
+    }
+
+    function hostOf(raw: unknown): string {
+      try {
+        return new URL(String(raw)).hostname.replace(/^www\./, '');
+      } catch {
+        return '';
+      }
+    }
+
+    function sameSite(a: string, b: string): boolean {
+      try {
+        const ha = new URL(a).hostname.replace(/^www\./, '').toLowerCase();
+        const hb = new URL(b).hostname.replace(/^www\./, '').toLowerCase();
+        if (!ha || !hb) return false;
+        return ha === hb || ha.endsWith('.' + hb) || hb.endsWith('.' + ha);
+      } catch {
+        return false;
+      }
+    }
+
+    function renderResults(analysis: any, meta?: { bizContext?: any; targetUrl?: string }) {
+      const targetUrl = meta?.targetUrl || lastSearchedUrl;
+      const biz = meta?.bizContext;
+      const competitors = (analysis.competitors ?? []).filter((c: any) => {
+        if (!c?.url) return false;
+        if (targetUrl && sameSite(c.url, targetUrl)) return false;
+        return true;
+      });
+
+      const audience = analysis.target_summary?.audience || biz?.audience || 'Unknown';
+      const monetization = analysis.target_summary?.monetization || 'Unknown';
+      const niche = biz?.category || biz?.niche || '';
+
       summaryEl.innerHTML = `
-        <div><p class="text-mute font-mono text-[11px] uppercase tracking-wider mb-1">Audience</p><p class="text-ink">${analysis.target_summary.audience}</p></div>
-        <div><p class="text-mute font-mono text-[11px] uppercase tracking-wider mb-1">Monetization</p><p class="text-ink">${analysis.target_summary.monetization}</p></div>
+        ${niche ? `<div class="sm:col-span-2"><p class="text-mute font-mono text-[11px] uppercase tracking-wider mb-1">Detected niche</p><p class="text-ink">${escapeHtml(niche)}</p>${biz?.name ? `<p class="text-mute text-[12px] mt-1">Brand: ${escapeHtml(biz.name)}</p>` : ''}</div>` : ''}
+        <div><p class="text-mute font-mono text-[11px] uppercase tracking-wider mb-1">Audience</p><p class="text-ink">${escapeHtml(audience)}</p></div>
+        <div><p class="text-mute font-mono text-[11px] uppercase tracking-wider mb-1">Monetization</p><p class="text-ink">${escapeHtml(monetization)}</p></div>
       `;
 
-      competitorsList.innerHTML = analysis.competitors.map((c: any) => `
-        <li class="flex items-start justify-between gap-4 bg-canvas rounded-[8px] border border-hairline p-4">
-          <div>
-            <a href="${c.url}" target="_blank" rel="noopener noreferrer" class="font-semibold text-link hover:underline text-[15px]">${c.name}</a>
-            <p class="text-body text-[13px] mt-1">${c.description}</p>
-          </div>
-          <span class="shrink-0 font-mono text-[12px] bg-primary/10 text-primary rounded-full px-2 py-0.5">${c.match_score}% match</span>
-        </li>
-      `).join('');
+      if (!competitors.length) {
+        competitorsList.innerHTML = `<li class="text-body text-[14px] p-4 border border-hairline rounded-[8px]">No external competitors found for this URL.</li>`;
+      } else {
+        competitorsList.innerHTML = competitors.map((c: any) => {
+          const href = safeHttpUrl(c.url);
+          const host = hostOf(c.url);
+          return `
+          <li class="flex items-start justify-between gap-4 bg-canvas rounded-[8px] border border-hairline p-4">
+            <div class="min-w-0">
+              <a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer" class="font-semibold text-link hover:underline text-[15px]">${escapeHtml(c.name)}</a>
+              ${host ? `<p class="text-mute font-mono text-[11px] mt-0.5 truncate">${escapeHtml(host)}</p>` : ''}
+              <p class="text-body text-[13px] mt-1">${escapeHtml(c.description)}</p>
+            </div>
+            <span class="shrink-0 font-mono text-[12px] bg-primary/10 text-primary rounded-full px-2 py-0.5">${escapeHtml(c.match_score)}% match</span>
+          </li>`;
+        }).join('');
+      }
 
-      const compNames: string[] = analysis.competitors.map((c: any) => c.name);
+      const compNames: string[] = competitors.map((c: any) => c.name);
+      // Keep matrix columns aligned with filtered competitors when possible
+      analysis.competitors = competitors;
       matrixHead.innerHTML = `
         <th class="text-left px-4 py-3 text-mute font-mono text-[11px] uppercase tracking-wider">Feature</th>
         <th class="px-4 py-3 text-center text-[12px] font-semibold text-link">You</th>
-        ${compNames.map((n: string) => `<th class="px-4 py-3 text-center text-[12px] font-semibold text-ink">${n}</th>`).join('')}
+        ${compNames.map((n: string) => `<th class="px-4 py-3 text-center text-[12px] font-semibold text-ink">${escapeHtml(n)}</th>`).join('')}
       `;
 
       matrixBody.innerHTML = (() => {
         // Group rows by category
         const grouped: Record<string, any[]> = {};
-        analysis.matrix.forEach((row: any) => {
+        (analysis.matrix ?? []).forEach((row: any) => {
           const cat = row.category ?? 'General';
           if (!grouped[cat]) grouped[cat] = [];
           grouped[cat].push(row);
@@ -669,15 +730,15 @@ const pricingMeta = [
 
         return Object.entries(grouped).map(([cat, rows]) => {
           const catRow = `<tr class="bg-canvas-soft/80 border-b border-hairline">
-            <td colspan="${compNames.length + 2}" class="px-4 py-2 text-mute font-mono text-[10px] uppercase tracking-widest">${cat}</td>
+            <td colspan="${compNames.length + 2}" class="px-4 py-2 text-mute font-mono text-[10px] uppercase tracking-widest">${escapeHtml(cat)}</td>
           </tr>`;
           const dataRows = rows.map((row: any, i: number) => {
-            const cells = [row.target_has, ...(row.competitor_values ?? [])]
+            const cells = [row.target_has, ...(row.competitor_values ?? []).slice(0, competitors.length)]
               .map((has: boolean | null) => `<td class="px-4 py-3 text-center">${cellIcon(has)}</td>`)
               .join('');
             return `<tr class="${i % 2 === 0 ? 'bg-canvas' : 'bg-canvas-soft/40'} border-b border-hairline last:border-0">
               <td class="px-4 py-3 text-body text-[13px] font-medium">
-                ${row.feature_name}
+                ${escapeHtml(row.feature_name)}
                 ${row.is_gap ? '<span class="text-[9px] font-mono bg-yellow-100 text-yellow-700 rounded px-1 ml-1">GAP</span>' : ''}
                 ${importanceBadge(row.importance ?? 'medium')}
               </td>
@@ -762,7 +823,10 @@ const pricingMeta = [
 
             if (status === 'complete') {
               updateStep('complete');
-              renderResults(payload.analysis);
+              renderResults(payload.analysis, {
+                bizContext: payload.bizContext,
+                targetUrl: lastSearchedUrl,
+              });
               hide(loading);
               show(output);
               reader.cancel();

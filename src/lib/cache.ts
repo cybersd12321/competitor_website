@@ -1,5 +1,5 @@
 /** Bump when pipeline semantics change so stale blobs are not reused. */
-export const PIPELINE_VERSION = "v2-grounded";
+export const PIPELINE_VERSION = "v3-niche-fix";
 
 const DEFAULT_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
 const SCRAPE_TTL_MS = 12 * 60 * 60 * 1000;

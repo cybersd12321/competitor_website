@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 import { scrapeSite, scrapeCompetitors } from "../../lib/scraper";
-import { searchCompetitors } from "../../lib/search";
+import { searchCompetitors, rootHost, isSameSite } from "../../lib/search";
 import { extractBusinessContext, analyzeCompetitors } from "../../lib/analyze";
 import { generateSearchQueries } from "../../lib/queries";
 import {
@@ -30,6 +30,15 @@ export const POST: APIRoute = async ({ request }) => {
     );
   }
 
+  // Normalize trailing slash / casing for consistent cache + exclusion
+  try {
+    const u = new URL(url);
+    u.hash = "";
+    url = u.toString();
+  } catch {
+    /* keep raw */
+  }
+
   const { readable, writable } = new TransformStream();
   const writer = writable.getWriter();
   const encoder = new TextEncoder();
@@ -43,7 +52,7 @@ export const POST: APIRoute = async ({ request }) => {
 
   (async () => {
     try {
-      const cacheKey = normalizeUrl(url);
+      const cacheKey = `${PIPELINE_VERSION}|${normalizeUrl(url)}`;
 
       const cached = await withLayerCache(
         "full",
@@ -56,37 +65,46 @@ export const POST: APIRoute = async ({ request }) => {
           );
           const targetContent = targetSite.markdown;
 
-          // ── Step 2: Business context + multi-query discovery ──────────
-          await send("searching", "Identifying niche and generating search queries...");
-          const bizContext = extractBusinessContext(targetContent);
+          // ── Step 2: Niche understanding + multi-query discovery ───────
+          await send("searching", "Identifying product niche and category...");
+          const bizContext = await extractBusinessContext(targetContent, url);
+          console.log("PIPELINE_BIZ:", bizContext);
 
-          const queries = await generateSearchQueries(targetContent, {
-            name: bizContext.name,
-            niche: bizContext.niche,
-            query: bizContext.query,
-          });
+          const queries = await generateSearchQueries(targetContent, bizContext);
           console.log("PIPELINE_QUERIES:", queries);
 
-          await send("searching", `Searching competitors (${queries.length} queries)...`);
+          await send(
+            "searching",
+            `Searching competitors for “${bizContext.category || bizContext.niche.slice(0, 40)}”...`
+          );
+
+          const targetHost = rootHost(url);
           const searchResults = await withLayerCache(
             "search",
             `${cacheKey}|${queries.join("|")}`,
             async () =>
               searchCompetitors(queries, {
                 targetUrl: url,
-                nicheTerms: bizContext.terms,
+                excludeHosts: targetHost ? [targetHost] : [],
+                nicheTerms: [
+                  ...bizContext.terms,
+                  ...bizContext.category.split(/\s+/),
+                ].filter(Boolean),
                 limit: 12,
               })
           );
 
-          if (!searchResults.length) {
+          // Hard filter: never keep the analyzed site in SERP list
+          const externalResults = searchResults.filter((r) => !isSameSite(r.url, url));
+
+          if (!externalResults.length) {
             throw new Error(
-              "No competitor search results after filtering. Try a more product-focused URL."
+              "No external competitors found after filtering your own site. Try a more product-focused URL."
             );
           }
 
           // ── Step 3: Scrape top competitor sites (grounded evidence) ───
-          const topUrls = searchResults.slice(0, 5).map((r) => r.url);
+          const topUrls = externalResults.slice(0, 5).map((r) => r.url);
           await send(
             "scraping_competitors",
             `Scraping top ${topUrls.length} competitor sites for feature evidence...`
@@ -94,25 +112,15 @@ export const POST: APIRoute = async ({ request }) => {
           const competitorScrapes = await scrapeCompetitors(topUrls, {
             maxCompetitors: 5,
             multiPage: true,
-            maxSecondary: 1, // home + pricing/features only — latency budget
+            maxSecondary: 1,
           });
           const scrapedOk = competitorScrapes.filter((c) => c.ok).length;
           console.log(
             `PIPELINE_COMPETITOR_SCRAPES: ${scrapedOk}/${competitorScrapes.length} ok`
           );
 
-          // Attach SERP metadata for analyze step
           const scrapesWithMeta = competitorScrapes.map((s) => {
-            const match = searchResults.find((r) => {
-              try {
-                return (
-                  new URL(r.url).hostname.replace(/^www\./, "") ===
-                  new URL(s.url).hostname.replace(/^www\./, "")
-                );
-              } catch {
-                return false;
-              }
-            });
+            const match = externalResults.find((r) => isSameSite(r.url, s.url));
             return {
               ...s,
               title: match?.title,
@@ -120,26 +128,36 @@ export const POST: APIRoute = async ({ request }) => {
             };
           });
 
-          // ── Step 4: Grounded AI analysis (model routed by complexity) ─
+          // ── Step 4: Grounded AI analysis ──────────────────────────────
           await send("analyzing", "Analyzing competitors with grounded page evidence...");
           const analysis = await withLayerCache(
             "analysis",
-            `${cacheKey}|${topUrls.join(",")}|${PIPELINE_VERSION}`,
-            async () => analyzeCompetitors(targetContent, searchResults, scrapesWithMeta)
+            `${cacheKey}|${topUrls.join(",")}`,
+            async () =>
+              analyzeCompetitors(targetContent, externalResults, scrapesWithMeta, {
+                targetUrl: url,
+                biz: bizContext,
+              })
+          );
+
+          // Absolute final guard on output links
+          analysis.competitors = (analysis.competitors ?? []).filter(
+            (c) => c.url && !isSameSite(c.url, url)
           );
 
           const quality: QualityFlags = {
             scrapedCompetitorCount: scrapedOk,
-            searchResultCount: searchResults.length,
+            searchResultCount: externalResults.length,
             matrixEvidenceCoverage: analysis.quality?.matrixEvidenceCoverage,
             targetPageCount: targetSite.quality.pageCount,
             pipelineVersion: PIPELINE_VERSION,
           };
 
           return {
-            searchResults,
+            searchResults: externalResults,
             analysis,
             queries,
+            bizContext,
             quality,
             pipelineVersion: PIPELINE_VERSION,
           };
