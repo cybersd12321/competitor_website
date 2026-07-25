@@ -602,21 +602,32 @@ const pricingMeta = [
     function hide(el: HTMLElement) { el.classList.add('hidden'); }
 
     const STATUS_MAP: Record<string, { text: string; dot: number }> = {
-      scraping:   { text: '🔍 Scraping and parsing target website data...', dot: 0 },
-      searching:  { text: '🌐 Initiating real-time search index queries...', dot: 1 },
-      analyzing:  { text: '🧠 Contextualizing competitor semantics via LLM...', dot: 2 },
-      complete:   { text: '📊 Compiling feature matrix and gap analysis...', dot: 3 },
+      scraping:              { text: '🔍 Scraping target site (home + pricing/features)...', dot: 0 },
+      searching:             { text: '🌐 Multi-query competitor discovery via search...', dot: 1 },
+      scraping_competitors:  { text: '📄 Scraping competitor pages for grounded evidence...', dot: 1 },
+      analyzing:             { text: '🧠 Building evidence-backed feature gap matrix...', dot: 2 },
+      complete:              { text: '📊 Compiling feature matrix and gap analysis...', dot: 3 },
     };
 
     function updateStep(status: string, message?: string) {
       const step = STATUS_MAP[status];
-      if (!step) return;
-      stepText.textContent = message ?? step.text;
-      dots.forEach((d, i) => { d.style.opacity = i <= step.dot ? '1' : '0.3'; });
+      if (step) {
+        stepText.textContent = message ?? step.text;
+        dots.forEach((d, i) => { d.style.opacity = i <= step.dot ? '1' : '0.3'; });
+      } else if (message) {
+        stepText.textContent = message;
+      }
     }
 
     const CHECK_SVG = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-label="Yes" class="inline-block"><circle cx="8" cy="8" r="7" fill="#3b9eff" fill-opacity="0.15"/><path d="M5 8l2 2 4-4" stroke="#3b9eff" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
     const CROSS_SVG = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-label="No" class="inline-block"><circle cx="8" cy="8" r="7" fill="currentColor" fill-opacity="0.07"/><path d="M6 6l4 4M10 6l-4 4" stroke="currentColor" stroke-opacity="0.3" stroke-width="1.4" stroke-linecap="round"/></svg>';
+    const UNKNOWN_SVG = '<span class="inline-block font-mono text-[11px] text-mute" aria-label="Unknown" title="Insufficient page evidence">?</span>';
+
+    function cellIcon(has: boolean | null | undefined): string {
+      if (has === true) return CHECK_SVG;
+      if (has === false) return CROSS_SVG;
+      return UNKNOWN_SVG;
+    }
 
     function renderResults(analysis: any) {
       summaryEl.innerHTML = `
@@ -661,8 +672,8 @@ const pricingMeta = [
             <td colspan="${compNames.length + 2}" class="px-4 py-2 text-mute font-mono text-[10px] uppercase tracking-widest">${cat}</td>
           </tr>`;
           const dataRows = rows.map((row: any, i: number) => {
-            const cells = [row.target_has, ...(row.competitor_values ?? []).map((v: boolean) => v)]
-              .map((has: boolean) => `<td class="px-4 py-3 text-center">${has ? CHECK_SVG : CROSS_SVG}</td>`)
+            const cells = [row.target_has, ...(row.competitor_values ?? [])]
+              .map((has: boolean | null) => `<td class="px-4 py-3 text-center">${cellIcon(has)}</td>`)
               .join('');
             return `<tr class="${i % 2 === 0 ? 'bg-canvas' : 'bg-canvas-soft/40'} border-b border-hairline last:border-0">
               <td class="px-4 py-3 text-body text-[13px] font-medium">
@@ -760,10 +771,10 @@ const pricingMeta = [
 
             if (status === 'routing') {
               stepText.textContent = message;
-              return;
+              continue;
             }
 
-            // scraping | searching | analyzing — update indicator
+            // scraping | searching | scraping_competitors | analyzing
             updateStep(status, message);
           }
         }

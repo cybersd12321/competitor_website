@@ -1,115 +1,401 @@
-import { callVenice } from './venice';
+import { callVenice } from "./venice";
+import { determineRequiredModel } from "./router";
+import type { SearchResult } from "./search";
 
-export function extractBusinessContext(targetMarkdown: string): { name: string; niche: string; query: string } {
-  const lines = targetMarkdown.split('\n').map(l => l.trim()).filter(Boolean);
+export interface BusinessContext {
+  name: string;
+  niche: string;
+  query: string;
+  terms: string[];
+}
+
+export interface CompetitorScrape {
+  url: string;
+  markdown: string;
+  ok: boolean;
+  error?: string;
+  title?: string;
+  snippet?: string;
+}
+
+export interface MatrixRow {
+  feature_name: string;
+  category: string;
+  importance: "high" | "medium" | "low" | string;
+  target_has: boolean | null;
+  competitor_values: Array<boolean | null>;
+  is_gap: boolean;
+  /** Short evidence snippet for target (optional). */
+  target_evidence?: string | null;
+  /** Per-competitor evidence; null when unknown. */
+  competitor_evidence?: Array<string | null>;
+}
+
+export interface AnalysisResult {
+  target_summary: { audience: string; monetization: string };
+  competitors: Array<{
+    name: string;
+    url: string;
+    match_score: number;
+    description: string;
+  }>;
+  matrix: MatrixRow[];
+  quality?: {
+    scrapedCompetitorCount: number;
+    searchResultCount: number;
+    matrixEvidenceCoverage: number;
+    model: string;
+  };
+}
+
+const MATRIX_JSON_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    target_summary: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        audience: { type: "string" },
+        monetization: { type: "string" },
+      },
+      required: ["audience", "monetization"],
+    },
+    competitors: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          name: { type: "string" },
+          url: { type: "string" },
+          match_score: { type: "number" },
+          description: { type: "string" },
+        },
+        required: ["name", "url", "match_score", "description"],
+      },
+    },
+    matrix: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          feature_name: { type: "string" },
+          category: { type: "string" },
+          importance: { type: "string", enum: ["high", "medium", "low"] },
+          target_has: { type: ["boolean", "null"] },
+          competitor_values: {
+            type: "array",
+            items: { type: ["boolean", "null"] },
+          },
+          is_gap: { type: "boolean" },
+          target_evidence: { type: ["string", "null"] },
+          competitor_evidence: {
+            type: "array",
+            items: { type: ["string", "null"] },
+          },
+        },
+        required: [
+          "feature_name",
+          "category",
+          "importance",
+          "target_has",
+          "competitor_values",
+          "is_gap",
+        ],
+      },
+    },
+  },
+  required: ["target_summary", "competitors", "matrix"],
+} as const;
+
+export function extractBusinessContext(targetMarkdown: string): BusinessContext {
+  const lines = targetMarkdown.split("\n").map((l) => l.trim()).filter(Boolean);
 
   // Jina includes "Title: ..." and "Description: ..." at the top
-  const titleLine = lines.find(l => /^title:/i.test(l))?.replace(/^title:\s*/i, '')
-    ?? lines.find(l => /^#{1,2}\s/.test(l))?.replace(/^#{1,2}\s+/, '')
-    ?? lines[0];
+  const titleLine =
+    lines.find((l) => /^title:/i.test(l))?.replace(/^title:\s*/i, "") ??
+    lines.find((l) => /^#{1,2}\s/.test(l))?.replace(/^#{1,2}\s+/, "") ??
+    lines[0];
 
-  const descLine = lines.find(l => /^description:/i.test(l))?.replace(/^description:\s*/i, '')
-    ?? lines.find(l => {
-      // Skip lines that are images, image captions, short labels, or navigation noise
-      if (l.startsWith('#') || l.startsWith('!') || l.startsWith('[')) return false;
-      // Skip lines that look like image alt/caption text (e.g. "Image 2", "logo", short isolated words)
-      if (/^image\s*\d*$/i.test(l) || /^(logo|icon|banner|screenshot|photo|illustration)(\s+\d+)?$/i.test(l)) return false;
-      // Must be a real sentence (contains a space and is reasonably long)
-      return l.length > 40 && l.includes(' ');
-    })
-    ?? '';
+  const descLine =
+    lines.find((l) => /^description:/i.test(l))?.replace(/^description:\s*/i, "") ??
+    lines.find((l) => {
+      if (l.startsWith("#") || l.startsWith("!") || l.startsWith("[")) return false;
+      if (/^image\s*\d*$/i.test(l) || /^(logo|icon|banner|screenshot|photo|illustration)(\s+\d+)?$/i.test(l)) {
+        return false;
+      }
+      return l.length > 40 && l.includes(" ");
+    }) ??
+    "";
 
-  // Strip markdown syntax, URLs, image tags, and all non-search-safe characters
-  const clean = (s: string) => s
-    .replace(/!\[.*?\]\(.*?\)/g, '')          // remove markdown images
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')  // unwrap markdown links → keep text
-    .replace(/https?:\/\/\S+/g, '')           // remove URLs
-    .replace(/[^\x20-\x7E]/g, ' ')            // strip non-ASCII (ellipsis, em-dash, etc.)
-    .replace(/[^a-zA-Z0-9 \-]/g, ' ')         // keep only alphanumeric, spaces, hyphens
-    .replace(/\s+/g, ' ')
-    .trim();
+  // Keep letters from any language; strip markdown/URLs/punctuation for search safety
+  const clean = (s: string) =>
+    s
+      .replace(/!\[.*?\]\(.*?\)/g, "")
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+      .replace(/https?:\/\/\S+/g, "")
+      .replace(/[^\p{L}\p{N}\s\-]/gu, " ")
+      .replace(/\s+/g, " ")
+      .trim();
 
-  const cleanTitle = clean(titleLine ?? '');
+  const cleanTitle = clean(titleLine ?? "");
   const cleanDesc = clean(descLine);
 
-  // Use only the title if desc adds noise (e.g. personal names/locations)
-  // Keep query short enough for Serper (max 60 chars before appending " competitors")
   const combined = cleanDesc
     ? `${cleanTitle} ${cleanDesc}`.trim().slice(0, 60)
     : cleanTitle.slice(0, 60);
-  const query = combined + ' competitors';
+  const query = combined + " competitors";
 
-  return { name: titleLine, niche: descLine, query };
+  const terms = `${cleanTitle} ${cleanDesc}`
+    .split(/\s+/)
+    .map((t) => t.toLowerCase())
+    .filter((t) => t.length >= 3 && !/^(the|and|for|with|from|your|our|this|that|you|are|was)$/i.test(t))
+    .slice(0, 12);
+
+  return {
+    name: titleLine ?? cleanTitle,
+    niche: descLine,
+    query,
+    terms,
+  };
 }
 
-export async function analyzeCompetitors(targetMarkdown: string, searchResults: any[]) {
+function buildCompetitorBlocks(
+  searchResults: SearchResult[],
+  scrapes: CompetitorScrape[],
+  max = 5
+): Array<{ name: string; url: string; snippet: string; content: string; scraped: boolean }> {
+  const byHost = new Map<string, CompetitorScrape>();
+  for (const s of scrapes) {
+    try {
+      const h = new URL(s.url).hostname.replace(/^www\./, "").toLowerCase();
+      byHost.set(h, s);
+    } catch {
+      /* skip */
+    }
+  }
+
+  const blocks: Array<{
+    name: string;
+    url: string;
+    snippet: string;
+    content: string;
+    scraped: boolean;
+  }> = [];
+
+  for (const r of searchResults) {
+    if (blocks.length >= max) break;
+    let host = "";
+    try {
+      host = new URL(r.url).hostname.replace(/^www\./, "").toLowerCase();
+    } catch {
+      continue;
+    }
+    const scrape = byHost.get(host);
+    const content =
+      scrape?.ok && scrape.markdown
+        ? scrape.markdown.slice(0, 4500)
+        : `(No page content scraped. SERP only.)\nTitle: ${r.title}\nSnippet: ${r.snippet}`;
+
+    blocks.push({
+      name: r.title.split(/[|\-–—]/)[0].trim() || r.title,
+      url: r.url,
+      snippet: r.snippet,
+      content,
+      scraped: Boolean(scrape?.ok && scrape.markdown),
+    });
+  }
+
+  return blocks;
+}
+
+function postProcessAnalysis(
+  parsed: AnalysisResult,
+  competitorBlocks: Array<{ name: string; url: string; scraped: boolean }>,
+  model: string,
+  searchResultCount: number
+): AnalysisResult {
+  const noisyKeys = [
+    "search bar",
+    "navigation",
+    "cart",
+    "menu",
+    "login",
+    "contact form",
+    "newsletter",
+    "cookie",
+    "sitemap",
+    "social media",
+    "faq page",
+    "about us",
+    "blog",
+  ];
+
+  const n = competitorBlocks.length;
+
+  // Ensure competitors list aligns with scraped/search order when model drifts
+  if (!parsed.competitors?.length && competitorBlocks.length) {
+    parsed.competitors = competitorBlocks.map((c, i) => ({
+      name: c.name,
+      url: c.url,
+      match_score: Math.max(50, 95 - i * 8),
+      description: "",
+    }));
+  }
+
+  parsed.competitors = (parsed.competitors ?? []).slice(0, 5).map((c, i) => ({
+    name: c.name || competitorBlocks[i]?.name || `Competitor ${i + 1}`,
+    url: c.url || competitorBlocks[i]?.url || "",
+    match_score: typeof c.match_score === "number" ? c.match_score : 70,
+    description: c.description ?? "",
+  }));
+
+  let evidenceHits = 0;
+  let evidenceSlots = 0;
+
+  parsed.matrix = (parsed.matrix ?? [])
+    .filter((row) => !noisyKeys.some((k) => (row.feature_name ?? "").toLowerCase().includes(k)))
+    .map((row) => {
+      const target_has = row.target_has === true ? true : row.target_has === false ? false : null;
+
+      // Align competitor_values length; null = unknown (not false)
+      let vals: Array<boolean | null> = Array.isArray(row.competitor_values)
+        ? [...row.competitor_values]
+        : [];
+      while (vals.length < n) vals.push(null);
+      vals = vals.slice(0, n).map((v) => (v === true ? true : v === false ? false : null));
+
+      // If competitor was not scraped, force unknown unless model left null already
+      vals = vals.map((v, i) => {
+        if (!competitorBlocks[i]?.scraped) {
+          // Keep true/false only if we have evidence string; else null
+          const ev = row.competitor_evidence?.[i];
+          if (!ev || String(ev).trim().length < 8) return null;
+        }
+        return v;
+      });
+
+      const is_gap = target_has === false && vals.some((v) => v === true);
+
+      // Evidence coverage stats
+      evidenceSlots += 1 + n;
+      if (row.target_evidence && String(row.target_evidence).trim().length >= 8) evidenceHits++;
+      for (let i = 0; i < n; i++) {
+        if (row.competitor_evidence?.[i] && String(row.competitor_evidence[i]).trim().length >= 8) {
+          evidenceHits++;
+        }
+      }
+
+      return {
+        ...row,
+        category: row.category ?? "General",
+        importance: row.importance ?? "medium",
+        target_has,
+        competitor_values: vals,
+        is_gap,
+      };
+    });
+
+  const scrapedCompetitorCount = competitorBlocks.filter((c) => c.scraped).length;
+  const matrixEvidenceCoverage =
+    evidenceSlots > 0 ? Math.round((evidenceHits / evidenceSlots) * 100) / 100 : 0;
+
+  parsed.quality = {
+    scrapedCompetitorCount,
+    searchResultCount,
+    matrixEvidenceCoverage,
+    model,
+  };
+
+  return parsed;
+}
+
+export async function analyzeCompetitors(
+  targetMarkdown: string,
+  searchResults: SearchResult[],
+  competitorScrapes: CompetitorScrape[] = []
+): Promise<AnalysisResult> {
+  const competitorBlocks = buildCompetitorBlocks(searchResults, competitorScrapes, 5);
+
+  if (!competitorBlocks.length) {
+    throw new Error("No competitor candidates available to analyze");
+  }
+
+  const model = await determineRequiredModel(targetMarkdown);
+
   const systemPrompt = `You are a senior competitive intelligence analyst. Your job is to find NON-OBVIOUS, high-signal differentiators that reveal real strategic gaps — not generic features every website has.
 
 STRICT RULES:
 - FORBIDDEN (never include): search bar, navigation menu, login/signup, shopping cart, contact form, responsive design, social media links, SSL certificate, newsletter subscription, cookie banner, FAQ page, 404 page, sitemap.
 - AVOID GENERIC: "Product catalog", "Customer reviews", "About Us page", "Blog", "Mobile app" — these are table stakes, not differentiators.
-- ONLY include features that are commercially or strategically significant: things that affect conversion, revenue model, customer retention, or market positioning.
-- Each feature must belong to one of these categories: "Pricing & Commerce", "Trust & Credibility", "Fulfillment & Operations", "Product Depth", "Support & Success", "Growth & Acquisition", "Tech & Integrations".
-- importance: "high" = directly impacts revenue or retention | "medium" = affects conversion | "low" = nice-to-have.
-- "target_has" must reflect what is ACTUALLY present in the Target Markdown — read it carefully.
-- "is_gap" = true ONLY when target_has is FALSE. Never when target_has is true.
-- Return EXACTLY 5 competitors. If fewer in results, infer well-known alternatives in the same niche.
-- Return EXACTLY 12–15 matrix rows spanning at least 4 different categories.
+- ONLY include features that are commercially or strategically significant: conversion, revenue model, retention, or market positioning.
+- Each feature must belong to one of: "Pricing & Commerce", "Trust & Credibility", "Fulfillment & Operations", "Product Depth", "Support & Success", "Growth & Acquisition", "Tech & Integrations".
+- importance: "high" = revenue/retention | "medium" = conversion | "low" = nice-to-have.
 
-GOOD feature examples (niche-specific, commercially meaningful):
-- "Transparent Pricing Page" (Pricing & Commerce, high)
-- "Free Trial Without Credit Card" (Growth & Acquisition, high)
-- "Live Chat Support" (Support & Success, medium)
-- "Annual Billing Discount" (Pricing & Commerce, medium)
-- "SOC2 / ISO Certification" (Trust & Credibility, high)
-- "White-label / Reseller Program" (Growth & Acquisition, high)
-- "SLA / Uptime Guarantee" (Fulfillment & Operations, high)
-- "Zapier / API Integration" (Tech & Integrations, medium)
-- "Custom Onboarding / CSM" (Support & Success, high)
-- "Case Studies with ROI Data" (Trust & Credibility, medium)
+EVIDENCE RULES (critical for accuracy):
+- competitor_values[i] must be grounded in COMPETITOR i's PAGE CONTENT when available.
+- If a competitor has "(No page content scraped...)", set competitor_values[i] to null (unknown) — do NOT invent true/false.
+- target_has must reflect TARGET WEBSITE CONTENT only. Use null if unclear.
+- is_gap = true ONLY when target_has is false AND at least one competitor_values entry is true.
+- For every non-null boolean, provide a short evidence quote (target_evidence / competitor_evidence[i]) from that site's content (≤120 chars).
+- competitor_values and competitor_evidence arrays MUST have length ${competitorBlocks.length} (same order as listed competitors).
+- Return EXACTLY ${Math.min(5, competitorBlocks.length)} competitors using the URLs provided (do not invent domains).
+- Return EXACTLY 12–15 matrix rows spanning at least 4 categories.
+- Do not invent competitors that are not in the provided list.`;
 
-OUTPUT: one raw JSON object, no markdown fences, no extra text.
+  const competitorSection = competitorBlocks
+    .map(
+      (c, i) =>
+        `### COMPETITOR ${i} — ${c.name}
+URL: ${c.url}
+Scraped: ${c.scraped ? "yes" : "no"}
+SERP snippet: ${c.snippet}
 
-{
-  "target_summary": { "audience": "specific buyer persona", "monetization": "revenue model" },
-  "competitors": [
-    { "name": "Brand", "url": "https://...", "match_score": 85, "description": "positioning summary" }
-  ],
-  "matrix": [
-    { "feature_name": "Differentiator", "category": "Pricing & Commerce", "importance": "high", "target_has": true, "competitor_values": [true, false], "is_gap": false }
-  ]
-}`;
+PAGE CONTENT:
+${c.content}`
+    )
+    .join("\n\n");
 
-  const userContext = `TARGET WEBSITE CONTENT (read thoroughly to determine what the target actually offers):
-${targetMarkdown.slice(0, 5000)}
+  const userContext = `TARGET WEBSITE CONTENT (read thoroughly for target_has):
+${targetMarkdown.slice(0, 9000)}
 
-COMPETITOR SEARCH RESULTS:
-${JSON.stringify(searchResults)}`;
+${competitorSection}
 
-  const rawText = await callVenice(`${systemPrompt}\n\n${userContext}`, 'qwen3-5-9b');
+Return one JSON object matching the schema.`;
+
+  let rawText: string;
+  try {
+    rawText = await callVenice(
+      `${systemPrompt}\n\n${userContext}`,
+      model,
+      MATRIX_JSON_SCHEMA as unknown as Record<string, unknown>
+    );
+  } catch (schemaErr) {
+    console.warn("JSON-schema Venice call failed, falling back to freeform:", schemaErr);
+    rawText = await callVenice(`${systemPrompt}\n\n${userContext}`, model);
+  }
 
   try {
-    const jsonStart = rawText.indexOf('{');
-    const jsonEnd = rawText.lastIndexOf('}');
+    const jsonStart = rawText.indexOf("{");
+    const jsonEnd = rawText.lastIndexOf("}");
     if (jsonStart === -1 || jsonEnd === -1) throw new Error("No JSON found in response.");
 
-    const parsedData = JSON.parse(rawText.substring(jsonStart, jsonEnd + 1));
+    const parsedData = JSON.parse(rawText.substring(jsonStart, jsonEnd + 1)) as AnalysisResult;
 
     if (!parsedData.competitors) parsedData.competitors = [];
     if (!parsedData.matrix) parsedData.matrix = [];
+    if (!parsedData.target_summary) {
+      parsedData.target_summary = { audience: "Unknown", monetization: "Unknown" };
+    }
 
-    // Enforce is_gap consistency and strip UI noise
-    const noisyKeys = ['search bar', 'navigation', 'cart', 'menu', 'login', 'contact form', 'newsletter', 'cookie', 'sitemap', 'social media', 'faq page', 'about us', 'blog'];
-    parsedData.matrix = parsedData.matrix
-      .filter((row: any) => !noisyKeys.some(k => (row.feature_name ?? '').toLowerCase().includes(k)))
-      .map((row: any) => ({
-        ...row,
-        category: row.category ?? 'General',
-        importance: row.importance ?? 'medium',
-        is_gap: row.target_has === false,
-      }));
-
-    return parsedData;
+    return postProcessAnalysis(
+      parsedData,
+      competitorBlocks,
+      model,
+      searchResults.length
+    );
   } catch (err) {
     console.error("CRITICAL_MATRIX_PARSING_FAULT.", err);
     throw new Error("Failed to parse market matrix from Venice response.");

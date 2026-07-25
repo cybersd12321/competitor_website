@@ -1,8 +1,14 @@
 import type { APIRoute } from "astro";
-import { scrapeWebsite } from "../../lib/scraper";
+import { scrapeSite, scrapeCompetitors } from "../../lib/scraper";
 import { searchCompetitors } from "../../lib/search";
 import { extractBusinessContext, analyzeCompetitors } from "../../lib/analyze";
-import { normalizeUrl, withCache } from "../../lib/cache";
+import { generateSearchQueries } from "../../lib/queries";
+import {
+  normalizeUrl,
+  withLayerCache,
+  PIPELINE_VERSION,
+  type QualityFlags,
+} from "../../lib/cache";
 
 export const POST: APIRoute = async ({ request }) => {
   let url: string;
@@ -39,22 +45,107 @@ export const POST: APIRoute = async ({ request }) => {
     try {
       const cacheKey = normalizeUrl(url);
 
-      const cached = await withCache(cacheKey, async () => {
-        // Step 1: Scrape
-        await send("scraping", "Fetching target website...");
-        const targetContent = await scrapeWebsite(url);
+      const cached = await withLayerCache(
+        "full",
+        cacheKey,
+        async () => {
+          // ── Step 1: Multi-page target scrape ──────────────────────────
+          await send("scraping", "Fetching target website (home + pricing/features)...");
+          const targetSite = await withLayerCache("scrape", cacheKey, async () =>
+            scrapeSite(url, { multiPage: true, maxSecondary: 3 })
+          );
+          const targetContent = targetSite.markdown;
 
-        // Step 2: Search
-        await send("searching", "Identifying business niche and searching for competitors...");
-        const bizContext = extractBusinessContext(targetContent);
-        const searchResults = await searchCompetitors([bizContext.query]);
+          // ── Step 2: Business context + multi-query discovery ──────────
+          await send("searching", "Identifying niche and generating search queries...");
+          const bizContext = extractBusinessContext(targetContent);
 
-        // Step 3: Analyze
-        await send("analyzing", "Analyzing competitors with Venice AI...");
-        const analysis = await analyzeCompetitors(targetContent, searchResults);
+          const queries = await generateSearchQueries(targetContent, {
+            name: bizContext.name,
+            niche: bizContext.niche,
+            query: bizContext.query,
+          });
+          console.log("PIPELINE_QUERIES:", queries);
 
-        return { searchResults, analysis };
-      });
+          await send("searching", `Searching competitors (${queries.length} queries)...`);
+          const searchResults = await withLayerCache(
+            "search",
+            `${cacheKey}|${queries.join("|")}`,
+            async () =>
+              searchCompetitors(queries, {
+                targetUrl: url,
+                nicheTerms: bizContext.terms,
+                limit: 12,
+              })
+          );
+
+          if (!searchResults.length) {
+            throw new Error(
+              "No competitor search results after filtering. Try a more product-focused URL."
+            );
+          }
+
+          // ── Step 3: Scrape top competitor sites (grounded evidence) ───
+          const topUrls = searchResults.slice(0, 5).map((r) => r.url);
+          await send(
+            "scraping_competitors",
+            `Scraping top ${topUrls.length} competitor sites for feature evidence...`
+          );
+          const competitorScrapes = await scrapeCompetitors(topUrls, {
+            maxCompetitors: 5,
+            multiPage: true,
+            maxSecondary: 1, // home + pricing/features only — latency budget
+          });
+          const scrapedOk = competitorScrapes.filter((c) => c.ok).length;
+          console.log(
+            `PIPELINE_COMPETITOR_SCRAPES: ${scrapedOk}/${competitorScrapes.length} ok`
+          );
+
+          // Attach SERP metadata for analyze step
+          const scrapesWithMeta = competitorScrapes.map((s) => {
+            const match = searchResults.find((r) => {
+              try {
+                return (
+                  new URL(r.url).hostname.replace(/^www\./, "") ===
+                  new URL(s.url).hostname.replace(/^www\./, "")
+                );
+              } catch {
+                return false;
+              }
+            });
+            return {
+              ...s,
+              title: match?.title,
+              snippet: match?.snippet,
+            };
+          });
+
+          // ── Step 4: Grounded AI analysis (model routed by complexity) ─
+          await send("analyzing", "Analyzing competitors with grounded page evidence...");
+          const analysis = await withLayerCache(
+            "analysis",
+            `${cacheKey}|${topUrls.join(",")}|${PIPELINE_VERSION}`,
+            async () => analyzeCompetitors(targetContent, searchResults, scrapesWithMeta)
+          );
+
+          const quality: QualityFlags = {
+            scrapedCompetitorCount: scrapedOk,
+            searchResultCount: searchResults.length,
+            matrixEvidenceCoverage: analysis.quality?.matrixEvidenceCoverage,
+            targetPageCount: targetSite.quality.pageCount,
+            pipelineVersion: PIPELINE_VERSION,
+          };
+
+          return {
+            searchResults,
+            analysis,
+            queries,
+            quality,
+            pipelineVersion: PIPELINE_VERSION,
+          };
+        },
+        (value) => value.quality
+      );
 
       await send("complete", "Analysis complete.", cached);
     } catch (err) {
@@ -62,7 +153,11 @@ export const POST: APIRoute = async ({ request }) => {
       const message = err instanceof Error ? err.message : "Internal server error";
       await send("error", message);
     } finally {
-      try { await writer.close(); } catch {}
+      try {
+        await writer.close();
+      } catch {
+        /* already closed */
+      }
     }
   })();
 

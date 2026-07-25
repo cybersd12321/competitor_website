@@ -1,8 +1,26 @@
-const TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
+/** Bump when pipeline semantics change so stale blobs are not reused. */
+export const PIPELINE_VERSION = "v2-grounded";
+
+const DEFAULT_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
+const SCRAPE_TTL_MS = 12 * 60 * 60 * 1000;
+const SEARCH_TTL_MS = 6 * 60 * 60 * 1000;
+const ANALYSIS_TTL_MS = 4 * 60 * 60 * 1000; // shorter — LLM output goes stale faster
 
 interface CacheEntry<T> {
   value: T;
   expiresAt: number;
+  layer: CacheLayer;
+  quality?: QualityFlags;
+}
+
+export type CacheLayer = "full" | "scrape" | "search" | "analysis";
+
+export interface QualityFlags {
+  scrapedCompetitorCount?: number;
+  searchResultCount?: number;
+  matrixEvidenceCoverage?: number;
+  targetPageCount?: number;
+  pipelineVersion?: string;
 }
 
 const store = new Map<string, CacheEntry<unknown>>();
@@ -17,22 +35,90 @@ export function normalizeUrl(url: string): string {
   }
 }
 
-export async function withCache<T>(key: string, fn: () => Promise<T>): Promise<T> {
-  const entry = store.get(key) as CacheEntry<T> | undefined;
-  if (entry && Date.now() < entry.expiresAt) return entry.value;
+function layerKey(layer: CacheLayer, key: string): string {
+  return `${PIPELINE_VERSION}:${layer}:${key}`;
+}
 
-  // Coalesce in-flight requests for the same key
-  if (inFlight.has(key)) return inFlight.get(key) as Promise<T>;
+function ttlFor(layer: CacheLayer): number {
+  switch (layer) {
+    case "scrape":
+      return SCRAPE_TTL_MS;
+    case "search":
+      return SEARCH_TTL_MS;
+    case "analysis":
+      return ANALYSIS_TTL_MS;
+    default:
+      return DEFAULT_TTL_MS;
+  }
+}
 
-  const promise = fn().then((value) => {
-    store.set(key, { value, expiresAt: Date.now() + TTL_MS });
-    inFlight.delete(key);
-    return value;
-  }).catch((err) => {
-    inFlight.delete(key);
-    throw err;
+export function cacheGet<T>(layer: CacheLayer, key: string): T | undefined {
+  const full = layerKey(layer, key);
+  const entry = store.get(full) as CacheEntry<T> | undefined;
+  if (!entry) return undefined;
+  if (Date.now() >= entry.expiresAt) {
+    store.delete(full);
+    return undefined;
+  }
+  // Reject entries from older pipeline if somehow present
+  if (entry.quality?.pipelineVersion && entry.quality.pipelineVersion !== PIPELINE_VERSION) {
+    store.delete(full);
+    return undefined;
+  }
+  return entry.value;
+}
+
+export function cacheSet<T>(
+  layer: CacheLayer,
+  key: string,
+  value: T,
+  quality?: QualityFlags
+): void {
+  const full = layerKey(layer, key);
+  store.set(full, {
+    value,
+    expiresAt: Date.now() + ttlFor(layer),
+    layer,
+    quality: { ...quality, pipelineVersion: PIPELINE_VERSION },
   });
+}
 
-  inFlight.set(key, promise);
+export async function withLayerCache<T>(
+  layer: CacheLayer,
+  key: string,
+  fn: () => Promise<T>,
+  quality?: (value: T) => QualityFlags | undefined
+): Promise<T> {
+  const hit = cacheGet<T>(layer, key);
+  if (hit !== undefined) return hit;
+
+  const full = layerKey(layer, key);
+  if (inFlight.has(full)) return inFlight.get(full) as Promise<T>;
+
+  const promise = fn()
+    .then((value) => {
+      const q = quality?.(value);
+      cacheSet(layer, key, value, q);
+      inFlight.delete(full);
+      return value;
+    })
+    .catch((err) => {
+      inFlight.delete(full);
+      throw err;
+    });
+
+  inFlight.set(full, promise);
   return promise;
+}
+
+/** Back-compat: full-result cache (pipeline-versioned). */
+export async function withCache<T>(key: string, fn: () => Promise<T>): Promise<T> {
+  return withLayerCache("full", key, fn);
+}
+
+export function invalidateUrl(url: string): void {
+  const n = normalizeUrl(url);
+  for (const layer of ["full", "scrape", "search", "analysis"] as CacheLayer[]) {
+    store.delete(layerKey(layer, n));
+  }
 }
